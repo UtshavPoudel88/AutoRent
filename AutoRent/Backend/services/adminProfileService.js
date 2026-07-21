@@ -1,4 +1,4 @@
-import { desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, ne, or } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { userDetails, users } from "../schema/index.js";
 
@@ -45,13 +45,16 @@ const getAllUsers = async (role) => {
 
 /**
  * Delete a user by ID (admin only). Cascades to user_details, favorites, etc.
+ * Admin accounts are never deletable through this path — otherwise any single
+ * admin could unilaterally purge every other admin (privilege escalation via
+ * denial of service against peer admins).
  * @param {string} userId - User ID to delete
  * @returns {Promise<Object|null>} - Deleted user or null
  */
 const deleteUser = async (userId) => {
   const [deleted] = await db
     .delete(users)
-    .where(eq(users.id, userId))
+    .where(and(eq(users.id, userId), ne(users.role, "admin")))
     .returning();
   return deleted || null;
 };
