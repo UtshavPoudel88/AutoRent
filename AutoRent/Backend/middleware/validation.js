@@ -177,6 +177,78 @@ const validateLogin = (req, res, next) => {
 };
 
 /**
+ * Middleware to validate MFA login verification (mfaToken + 6-digit code or backup code)
+ */
+const validateMfaLoginVerify = (req, res, next) => {
+  const { mfaToken, code } = req.body;
+  const errors = [];
+
+  if (!mfaToken || typeof mfaToken !== "string") {
+    errors.push("mfaToken is required");
+  }
+
+  if (!code || typeof code !== "string") {
+    errors.push("code is required");
+  } else if (!/^\d{6}$/.test(code) && !/^[a-f0-9]{10}$/i.test(code)) {
+    errors.push("code must be a 6-digit authenticator code or a valid backup code");
+  }
+
+  if (errors.length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Validation failed",
+      errors,
+    });
+  }
+
+  next();
+};
+
+/**
+ * Middleware to validate MFA setup confirmation (6-digit code only)
+ */
+const validateMfaSetupVerify = (req, res, next) => {
+  const { code } = req.body;
+  const errors = [];
+
+  if (!code || !/^\d{6}$/.test(code)) {
+    errors.push("code must be a 6-digit number");
+  }
+
+  if (errors.length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Validation failed",
+      errors,
+    });
+  }
+
+  next();
+};
+
+/**
+ * Middleware to validate MFA disable (current password required)
+ */
+const validateMfaDisable = (req, res, next) => {
+  const { password } = req.body;
+  const errors = [];
+
+  if (!password) {
+    errors.push("Current password is required");
+  }
+
+  if (errors.length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Validation failed",
+      errors,
+    });
+  }
+
+  next();
+};
+
+/**
  * Middleware to validate add vehicle data (document images mandatory for admin verification)
  */
 const validateAddVehicle = (req, res, next) => {
@@ -367,6 +439,9 @@ export {
     validateAddVehicleImages,
     validateForgotPassword,
     validateLogin,
+    validateMfaDisable,
+    validateMfaLoginVerify,
+    validateMfaSetupVerify,
     validateOTPVerification,
     validateRegistration,
     validateResetPassword,

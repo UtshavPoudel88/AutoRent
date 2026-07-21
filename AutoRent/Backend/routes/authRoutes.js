@@ -1,12 +1,16 @@
 import express from "express";
 import {
+  disableMfaController,
   forgotPassword,
   getMe,
   login,
+  loginVerifyMfa,
   register,
   resendOTP,
   resetPassword,
+  setupMfa,
   verifyEmail,
+  verifyMfaSetup,
   verifyOTPForReset,
 } from "../controller/authController.js";
 import {
@@ -19,6 +23,9 @@ import { authenticateToken } from "../middleware/auth.js";
 import {
   validateForgotPassword,
   validateLogin,
+  validateMfaDisable,
+  validateMfaLoginVerify,
+  validateMfaSetupVerify,
   validateOTPVerification,
   validateRegistration,
   validateResetPassword,
@@ -51,6 +58,20 @@ router.post("/auth/reset-password", validateResetPassword, resetPassword);
 
 // Get current user (auth required; returns fresh user including isProfileVerified)
 router.get("/auth/me", authenticateToken, getMe);
+
+// ==================== MFA (TOTP) Routes ====================
+
+// Complete login after password step by verifying a TOTP/backup code (public — gated by short-lived mfaToken)
+router.post("/auth/login/mfa", validateMfaLoginVerify, loginVerifyMfa);
+
+// Start MFA enrollment: generate secret + QR code (auth required)
+router.post("/auth/mfa/setup", authenticateToken, setupMfa);
+
+// Confirm MFA enrollment with a code from the authenticator app (auth required)
+router.post("/auth/mfa/setup/verify", authenticateToken, validateMfaSetupVerify, verifyMfaSetup);
+
+// Disable MFA — requires current password (auth required)
+router.post("/auth/mfa/disable", authenticateToken, validateMfaDisable, disableMfaController);
 
 // ==================== User Details Routes ====================
 

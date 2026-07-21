@@ -105,7 +105,7 @@ const verifyProfileController = async (req, res) => {
       });
     }
 
-    const { password: _, otp: __, otpExpiresAt: ___, ...userResponse } = updatedUser;
+    const { password: _, otp: __, otpExpiresAt: ___, mfaSecret: ____, mfaTempSecret: _____, mfaBackupCodes: ______, ...userResponse } = updatedUser;
 
     res.status(200).json({
       success: true,

@@ -5,12 +5,44 @@ import { db } from "../db/index.js";
 import { users } from "../schema/index.js";
 import { sendOTPEmail, sendPasswordResetOTPEmail } from "../services/emailService.js";
 import {
+  disableMfa,
+  generateEnrollmentSecret,
+  verifyAndEnableMfa,
+  verifyLoginCode,
+} from "../services/mfaService.js";
+import {
   createOTP,
   generateOTP,
   getOtpExpiresAt,
   validateOTP,
   verifyOTP,
 } from "../services/otpService.js";
+
+/** Short-lived token proving password was verified; only good for completing MFA login. */
+const issueMfaPendingToken = (user) => {
+  const jwtSecret = process.env.JWT_SECRET;
+  return jwt.sign(
+    { id: user.id, mfaPending: true },
+    jwtSecret,
+    { expiresIn: "5m" }
+  );
+};
+
+const issueSessionToken = (user) => {
+  const jwtSecret = process.env.JWT_SECRET;
+  return jwt.sign(
+    {
+      id: user.id,
+      userId: user.id, // Alias for consistency
+      email: user.email,
+      role: user.role,
+    },
+    jwtSecret,
+    {
+      expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+    }
+  );
+};
 
 /**
  * Register a new user
@@ -65,7 +97,7 @@ const register = async (req, res) => {
         console.error(`[Register] OTP email FAILED for ${email}:`, emailError.message)
     );
 
-    const { password: _, otp: __, otpExpiresAt: ___, ...userResponse } = newUser;
+    const { password: _, otp: __, otpExpiresAt: ___, mfaSecret: ____, mfaTempSecret: _____, mfaBackupCodes: ______, ...userResponse } = newUser;
 
     res.status(201).json({
       success: true,
@@ -132,7 +164,7 @@ const verifyEmail = async (req, res) => {
       .returning();
 
     // Remove password, otp, and otpExpiresAt from response
-    const { password: _, otp: __, otpExpiresAt: ___, ...userResponse } = updatedUser;
+    const { password: _, otp: __, otpExpiresAt: ___, mfaSecret: ____, mfaTempSecret: _____, mfaBackupCodes: ______, ...userResponse } = updatedUser;
 
     res.status(200).json({
       success: true,
@@ -246,7 +278,6 @@ const login = async (req, res) => {
       });
     }
 
-    // Generate JWT token
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
       console.error("JWT_SECRET is not defined in environment variables");
@@ -256,21 +287,22 @@ const login = async (req, res) => {
       });
     }
 
-    const token = jwt.sign(
-      {
-        id: user.id,
-        userId: user.id, // Alias for consistency
-        email: user.email,
-        role: user.role,
-      },
-      jwtSecret,
-      {
-        expiresIn: process.env.JWT_EXPIRES_IN || "7d",
-      }
-    );
+    // Password is correct — if MFA is enabled, stop short of issuing a session
+    // token and require a valid TOTP/backup code first.
+    if (user.mfaEnabled) {
+      const mfaToken = issueMfaPendingToken(user);
+      return res.status(200).json({
+        success: true,
+        mfaRequired: true,
+        mfaToken,
+        message: "Enter your authenticator code to finish signing in",
+      });
+    }
+
+    const token = issueSessionToken(user);
 
     // Remove password, otp, and otpExpiresAt from response
-    const { password: _, otp: __, otpExpiresAt: ___, ...userResponse } = user;
+    const { password: _, otp: __, otpExpiresAt: ___, mfaSecret: ____, mfaTempSecret: _____, mfaBackupCodes: ______, ...userResponse } = user;
 
     res.status(200).json({
       success: true,
@@ -436,7 +468,7 @@ const getMe = async (req, res) => {
       });
     }
 
-    const { password: _, otp: __, otpExpiresAt: ___, ...userResponse } = user;
+    const { password: _, otp: __, otpExpiresAt: ___, mfaSecret: ____, mfaTempSecret: _____, mfaBackupCodes: ______, ...userResponse } = user;
 
     res.status(200).json({
       success: true,
@@ -452,14 +484,201 @@ const getMe = async (req, res) => {
   }
 };
 
+/**
+ * POST /auth/login/mfa – complete login after password step by verifying a
+ * TOTP or backup code against the short-lived mfaToken issued by login().
+ */
+const loginVerifyMfa = async (req, res) => {
+  try {
+    const { mfaToken, code } = req.body;
+
+    if (!mfaToken || !code) {
+      return res.status(400).json({
+        success: false,
+        message: "mfaToken and code are required",
+      });
+    }
+
+    const jwtSecret = process.env.JWT_SECRET;
+    let decoded;
+    try {
+      decoded = jwt.verify(mfaToken, jwtSecret);
+    } catch {
+      return res.status(401).json({
+        success: false,
+        message: "MFA session expired. Please log in again.",
+      });
+    }
+
+    if (!decoded.mfaPending) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid MFA session",
+      });
+    }
+
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, decoded.id))
+      .limit(1);
+
+    if (!user || !user.mfaEnabled) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid MFA session",
+      });
+    }
+
+    const isValid = await verifyLoginCode(user.id, code);
+    if (!isValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or expired code",
+      });
+    }
+
+    const token = issueSessionToken(user);
+    const { password: _, otp: __, otpExpiresAt: ___, mfaSecret: ____, mfaTempSecret: _____, mfaBackupCodes: ______, ...userResponse } = user;
+
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
+      user: userResponse,
+      token,
+    });
+  } catch (error) {
+    console.error("MFA login verification error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+/**
+ * POST /auth/mfa/setup – start enrollment: generate a pending TOTP secret and
+ * return a QR code. MFA is not enabled until verifyMfaSetup confirms a code.
+ */
+const setupMfa = async (req, res) => {
+  try {
+    const userId = req.user?.userId || req.user?.id;
+
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    if (user.mfaEnabled) {
+      return res.status(400).json({
+        success: false,
+        message: "MFA is already enabled. Disable it first to re-enroll.",
+      });
+    }
+
+    const { secret, qrCodeDataUrl } = await generateEnrollmentSecret(userId, user.email);
+
+    res.status(200).json({
+      success: true,
+      message: "Scan the QR code with your authenticator app, then confirm with a code",
+      secret,
+      qrCodeDataUrl,
+    });
+  } catch (error) {
+    console.error("MFA setup error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+/**
+ * POST /auth/mfa/setup/verify – confirm enrollment with a code from the app.
+ * On success, enables MFA and returns one-time backup codes (shown once).
+ */
+const verifyMfaSetup = async (req, res) => {
+  try {
+    const userId = req.user?.userId || req.user?.id;
+    const { code } = req.body;
+
+    if (!code) {
+      return res.status(400).json({ success: false, message: "Code is required" });
+    }
+
+    const result = await verifyAndEnableMfa(userId, code);
+    if (!result.success) {
+      return res.status(400).json({ success: false, message: result.message });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "MFA enabled successfully. Save these backup codes somewhere safe — they won't be shown again.",
+      backupCodes: result.backupCodes,
+    });
+  } catch (error) {
+    console.error("MFA setup verification error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+/**
+ * POST /auth/mfa/disable – turn MFA off. Requires the current password (and,
+ * if still available, a valid code) so a hijacked session token alone can't
+ * strip a second factor off the account.
+ */
+const disableMfaController = async (req, res) => {
+  try {
+    const userId = req.user?.userId || req.user?.id;
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password is required to disable MFA",
+      });
+    }
+
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ success: false, message: "Incorrect password" });
+    }
+
+    await disableMfa(userId);
+
+    res.status(200).json({ success: true, message: "MFA has been disabled" });
+  } catch (error) {
+    console.error("MFA disable error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
 export {
+  disableMfaController,
   forgotPassword,
   getMe,
   login,
+  loginVerifyMfa,
   register,
   resendOTP,
   resetPassword,
+  setupMfa,
   verifyEmail,
+  verifyMfaSetup,
   verifyOTPForReset
 };
 
