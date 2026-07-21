@@ -16,6 +16,11 @@ const users = pgTable("users", {
   isProfileVerified: boolean("is_profile_verified").default(false).notNull(),
   otp: varchar("otp", { length: 6 }),
   otpExpiresAt: timestamp("otp_expires_at"),
+  // MFA (TOTP)
+  mfaEnabled: boolean("mfa_enabled").default(false).notNull(),
+  mfaSecret: varchar("mfa_secret", { length: 255 }), // confirmed, active secret (base32)
+  mfaTempSecret: varchar("mfa_temp_secret", { length: 255 }), // pending secret during enrollment, before confirmation
+  mfaBackupCodes: varchar("mfa_backup_codes", { length: 2000 }), // JSON array of bcrypt-hashed one-time recovery codes
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

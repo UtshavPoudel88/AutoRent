@@ -106,6 +106,13 @@
       "when": 1784369189092,
       "tag": "0014_drop_chat_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1784631068905,
+      "tag": "0015_add_mfa_totp",
+      "breakpoints": true
     }
   ]
 }
