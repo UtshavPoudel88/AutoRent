@@ -21,6 +21,13 @@ import {
 } from "../controller/userDetailsController.js";
 import { authenticateToken } from "../middleware/auth.js";
 import {
+  forgotPasswordLimiter,
+  loginLimiter,
+  mfaVerifyLimiter,
+  otpLimiter,
+  registerLimiter,
+} from "../middleware/rateLimit.js";
+import {
   validateForgotPassword,
   validateLogin,
   validateMfaDisable,
@@ -36,25 +43,25 @@ const router = express.Router();
 // ==================== Authentication Routes ====================
 
 // Register new user
-router.post("/auth/register", validateRegistration, register);
+router.post("/auth/register", registerLimiter, validateRegistration, register);
 
 // Verify email with OTP
-router.post("/auth/verify-email", validateOTPVerification, verifyEmail);
+router.post("/auth/verify-email", otpLimiter, validateOTPVerification, verifyEmail);
 
 // Resend OTP
-router.post("/auth/resend-otp", resendOTP);
+router.post("/auth/resend-otp", otpLimiter, resendOTP);
 
 // Login user
-router.post("/auth/login", validateLogin, login);
+router.post("/auth/login", loginLimiter, validateLogin, login);
 
 // Forgot password: send OTP to registered email
-router.post("/auth/forgot-password", validateForgotPassword, forgotPassword);
+router.post("/auth/forgot-password", forgotPasswordLimiter, validateForgotPassword, forgotPassword);
 
 // Verify OTP (for forgot password; does not clear OTP)
-router.post("/auth/verify-otp", validateOTPVerification, verifyOTPForReset);
+router.post("/auth/verify-otp", forgotPasswordLimiter, validateOTPVerification, verifyOTPForReset);
 
 // Reset password: verify OTP (clears it) and set new password
-router.post("/auth/reset-password", validateResetPassword, resetPassword);
+router.post("/auth/reset-password", forgotPasswordLimiter, validateResetPassword, resetPassword);
 
 // Get current user (auth required; returns fresh user including isProfileVerified)
 router.get("/auth/me", authenticateToken, getMe);
@@ -62,13 +69,13 @@ router.get("/auth/me", authenticateToken, getMe);
 // ==================== MFA (TOTP) Routes ====================
 
 // Complete login after password step by verifying a TOTP/backup code (public — gated by short-lived mfaToken)
-router.post("/auth/login/mfa", validateMfaLoginVerify, loginVerifyMfa);
+router.post("/auth/login/mfa", mfaVerifyLimiter, validateMfaLoginVerify, loginVerifyMfa);
 
 // Start MFA enrollment: generate secret + QR code (auth required)
 router.post("/auth/mfa/setup", authenticateToken, setupMfa);
 
 // Confirm MFA enrollment with a code from the authenticator app (auth required)
-router.post("/auth/mfa/setup/verify", authenticateToken, validateMfaSetupVerify, verifyMfaSetup);
+router.post("/auth/mfa/setup/verify", authenticateToken, mfaVerifyLimiter, validateMfaSetupVerify, verifyMfaSetup);
 
 // Disable MFA — requires current password (auth required)
 router.post("/auth/mfa/disable", authenticateToken, validateMfaDisable, disableMfaController);

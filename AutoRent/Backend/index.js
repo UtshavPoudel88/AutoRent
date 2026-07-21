@@ -25,6 +25,10 @@ import { setNotificationSocket } from "./services/notificationService.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Behind a reverse proxy (Render, etc.) — needed so express-rate-limit and
+// req.ip see the real client IP from X-Forwarded-For instead of the proxy's.
+app.set("trust proxy", 1);
+
 /** Comma-separated in Render: https://app1.vercel.app,https://app2.vercel.app */
 function getAllowedOrigins() {
   const fromEnv = (process.env.FRONTEND_URL || "")
