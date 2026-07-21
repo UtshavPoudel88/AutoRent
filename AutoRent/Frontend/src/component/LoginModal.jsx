@@ -18,10 +18,12 @@ const LoginModal = ({
   onSwitchToForgotPassword,
   onLoginSuccess,
 }) => {
-  const [step, setStep] = useState("login"); // 'login' or 'verify'
+  const [step, setStep] = useState("login"); // 'login' | 'verify' | 'mfa'
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
+  const [mfaToken, setMfaToken] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -55,7 +57,12 @@ const LoginModal = ({
 
     try {
       const response = await authAPI.login(email, password);
-      completeLogin(response);
+      if (response.mfaRequired) {
+        setMfaToken(response.mfaToken);
+        setStep("mfa");
+      } else {
+        completeLogin(response);
+      }
     } catch (err) {
       const message = err.message || "Invalid email or password. Please try again.";
       if (/verify your email/i.test(message)) {
@@ -72,6 +79,27 @@ const LoginModal = ({
       } else {
         setError(message);
       }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyMfa = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    const trimmed = mfaCode.trim();
+    if (!/^\d{6}$/.test(trimmed) && !/^[a-f0-9]{10}$/i.test(trimmed)) {
+      setError("Enter your 6-digit authenticator code or a backup code.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await authAPI.loginVerifyMfa(mfaToken, trimmed);
+      completeLogin(response);
+    } catch (err) {
+      setError(err.message || "Invalid or expired code. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -123,6 +151,8 @@ const LoginModal = ({
   const handleClose = () => {
     setStep("login");
     setOtp("");
+    setMfaToken("");
+    setMfaCode("");
     setError("");
     setSuccess("");
     onClose();
@@ -152,12 +182,18 @@ const LoginModal = ({
         {/* Header */}
         <div className="mb-8 text-center">
           <h2 className="text-3xl font-extrabold text-white">
-            {step === "login" ? "Welcome Back" : "Verify Your Email"}
+            {step === "login"
+              ? "Welcome Back"
+              : step === "mfa"
+                ? "Two-Factor Verification"
+                : "Verify Your Email"}
           </h2>
           <p className="mt-2 text-sm text-white/60">
             {step === "login"
               ? "Sign in to your AutoRent account"
-              : "Enter the 6-digit code sent to your email to finish signing in"}
+              : step === "mfa"
+                ? "Enter the code from your authenticator app (or a backup code)"
+                : "Enter the 6-digit code sent to your email to finish signing in"}
           </p>
         </div>
 
@@ -335,20 +371,85 @@ const LoginModal = ({
           </form>
         )}
 
+        {/* MFA Verification Form */}
+        {step === "mfa" && (
+          <form onSubmit={handleVerifyMfa} className="space-y-5">
+            {error && (
+              <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
+                {error}
+              </div>
+            )}
+
+            <div>
+              <label
+                htmlFor="login-mfa-code"
+                className="mb-2 block text-sm font-medium text-white/80"
+              >
+                Authenticator Code
+              </label>
+              <div className="relative">
+                <FontAwesomeIcon
+                  icon={faKey}
+                  className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40"
+                />
+                <input
+                  id="login-mfa-code"
+                  type="text"
+                  value={mfaCode}
+                  onChange={(e) =>
+                    setMfaCode(e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 10))
+                  }
+                  required
+                  autoComplete="one-time-code"
+                  placeholder="000000"
+                  maxLength={10}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-12 pr-4 text-center text-2xl font-bold tracking-widest text-white placeholder:text-white/20 focus:border-orange-500/50 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition"
+                />
+              </div>
+              <p className="mt-2 text-xs text-white/50">
+                Lost your device? Use one of your 10-character backup codes instead.
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading || mfaCode.length < 6}
+              className="w-full cursor-pointer rounded-xl bg-orange-500 py-3 text-base font-bold text-black shadow-[0_8px_30px_rgba(249,115,22,0.35)] transition-all duration-300 hover:scale-105 hover:bg-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:ring-offset-2 focus:ring-offset-black disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            >
+              {isLoading ? "Verifying..." : "Verify"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setStep("login");
+                setMfaCode("");
+                setMfaToken("");
+                setError("");
+              }}
+              className="w-full text-center text-sm font-medium text-white/60 hover:text-white/80"
+            >
+              Back to Sign In
+            </button>
+          </form>
+        )}
+
         {/* Switch to Sign Up */}
-        <div className="mt-6 text-center text-sm text-white/60">
-          Don't have an account?{" "}
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              onSwitchToSignUp();
-            }}
-            className="font-semibold text-orange-400 transition hover:text-orange-300"
-          >
-            Sign Up
-          </button>
-        </div>
+        {step === "login" && (
+          <div className="mt-6 text-center text-sm text-white/60">
+            Don't have an account?{" "}
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onSwitchToSignUp();
+              }}
+              className="font-semibold text-orange-400 transition hover:text-orange-300"
+            >
+              Sign Up
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

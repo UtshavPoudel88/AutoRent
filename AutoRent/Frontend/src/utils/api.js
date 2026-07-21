@@ -125,6 +125,38 @@ export const authAPI = {
     const res = await apiRequest("/auth/me", { method: "GET" });
     return res?.user ?? null;
   },
+
+  // Complete login after password step with a TOTP/backup code
+  loginVerifyMfa: async (mfaToken, code) => {
+    return apiRequest("/auth/login/mfa", {
+      method: "POST",
+      body: JSON.stringify({ mfaToken, code }),
+    });
+  },
+};
+
+// MFA (TOTP) management API (auth required)
+export const mfaAPI = {
+  // Start enrollment: returns { secret, qrCodeDataUrl }
+  setup: async () => {
+    return apiRequest("/auth/mfa/setup", { method: "POST" });
+  },
+
+  // Confirm enrollment with a code from the authenticator app; returns { backupCodes }
+  verifySetup: async (code) => {
+    return apiRequest("/auth/mfa/setup/verify", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    });
+  },
+
+  // Disable MFA (requires current password)
+  disable: async (password) => {
+    return apiRequest("/auth/mfa/disable", {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    });
+  },
 };
 
 
