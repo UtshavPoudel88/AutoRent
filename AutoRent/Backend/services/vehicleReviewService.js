@@ -4,13 +4,14 @@ import { bookings, users, vehicleReviews } from "../schema/index.js";
 
 /**
  * Create or update a vehicle review. User must have completed a booking for this vehicle.
+ * bookingId is never taken from the caller — it's always the server-verified booking
+ * used to establish eligibility, so a review can't be linked to someone else's booking.
  * @param {string} userId - User ID (renter)
  * @param {string} vehicleId - Vehicle ID
  * @param {number} rating - 1-5
  * @param {string} [comment] - Optional comment
- * @param {string} [bookingId] - Optional booking ID (for linking)
  */
-const createReview = async (userId, vehicleId, rating, comment = null, bookingId = null) => {
+const createReview = async (userId, vehicleId, rating, comment = null) => {
   const r = Number(rating);
   if (!Number.isInteger(r) || r < 1 || r > 5) {
     const err = new Error("Rating must be an integer between 1 and 5");
@@ -51,7 +52,7 @@ const createReview = async (userId, vehicleId, rating, comment = null, bookingId
   const values = {
     rating: r,
     comment: comment?.trim() || null,
-    bookingId: bookingId || booking.id,
+    bookingId: booking.id,
     updatedAt: new Date(),
   };
 

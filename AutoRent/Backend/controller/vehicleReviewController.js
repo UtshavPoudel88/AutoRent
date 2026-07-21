@@ -83,9 +83,9 @@ const createReviewController = async (req, res) => {
   try {
     const userId = req.user.userId;
     const { vehicleId } = req.params;
-    const { rating, comment, bookingId } = req.body;
+    const { rating, comment } = req.body;
 
-    const review = await createReview(userId, vehicleId, rating, comment, bookingId);
+    const review = await createReview(userId, vehicleId, rating, comment);
 
     res.status(201).json({
       success: true,
