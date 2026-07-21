@@ -8,8 +8,12 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useState } from "react";
+import ReCaptcha from "./ReCaptcha.jsx";
 import { authAPI, setAuthToken } from "../utils/api.js";
 import { validateLoginForm, validateOtp } from "../utils/formValidation.js";
+
+/** If no site key is configured, the widget doesn't render — don't block submit waiting for a token that'll never come. */
+const CAPTCHA_CONFIGURED = !!import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
 const LoginModal = ({
   isOpen,
@@ -24,6 +28,8 @@ const LoginModal = ({
   const [otp, setOtp] = useState("");
   const [mfaToken, setMfaToken] = useState("");
   const [mfaCode, setMfaCode] = useState("");
+  const [captchaRequired, setCaptchaRequired] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -53,10 +59,14 @@ const LoginModal = ({
       setError(clientErr);
       return;
     }
+    if (captchaRequired && CAPTCHA_CONFIGURED && !captchaToken) {
+      setError("Please complete the CAPTCHA to continue");
+      return;
+    }
     setIsLoading(true);
 
     try {
-      const response = await authAPI.login(email, password);
+      const response = await authAPI.login(email, password, captchaToken || undefined);
       if (response.mfaRequired) {
         setMfaToken(response.mfaToken);
         setStep("mfa");
@@ -64,6 +74,10 @@ const LoginModal = ({
         completeLogin(response);
       }
     } catch (err) {
+      if (err.data?.captchaRequired) {
+        setCaptchaRequired(true);
+        setCaptchaToken("");
+      }
       const message = err.message || "Invalid email or password. Please try again.";
       if (/verify your email/i.test(message)) {
         setError("");
@@ -153,6 +167,8 @@ const LoginModal = ({
     setOtp("");
     setMfaToken("");
     setMfaCode("");
+    setCaptchaRequired(false);
+    setCaptchaToken("");
     setError("");
     setSuccess("");
     onClose();
@@ -289,10 +305,15 @@ const LoginModal = ({
               </button>
             </div>
 
+            {/* CAPTCHA — only shown after repeated failed attempts */}
+            {captchaRequired && (
+              <ReCaptcha onVerify={(token) => setCaptchaToken(token || "")} />
+            )}
+
             {/* Submit button */}
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || (captchaRequired && CAPTCHA_CONFIGURED && !captchaToken)}
               className="w-full cursor-pointer rounded-xl bg-orange-500 py-3 text-base font-bold text-black shadow-[0_8px_30px_rgba(249,115,22,0.35)] transition-all duration-300 hover:scale-105 hover:bg-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:ring-offset-2 focus:ring-offset-black disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
               {isLoading ? "Signing in..." : "Sign In"}

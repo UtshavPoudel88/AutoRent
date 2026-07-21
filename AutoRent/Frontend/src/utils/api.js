@@ -40,13 +40,17 @@ const apiRequest = async (endpoint, options = {}) => {
 
     if (!response.ok) {
       const message = data?.message || data?.error;
+      let err;
       if (response.status === 401 || response.status === 403) {
-        throw new Error(message || "Access token required");
+        err = new Error(message || "Access token required");
+      } else if (data.errors && Array.isArray(data.errors)) {
+        err = new Error(data.errors.join(", "));
+      } else {
+        err = new Error(message || "An error occurred");
       }
-      if (data.errors && Array.isArray(data.errors)) {
-        throw new Error(data.errors.join(", "));
-      }
-      throw new Error(message || "An error occurred");
+      err.status = response.status;
+      err.data = data;
+      throw err;
     }
 
     return data;
@@ -88,11 +92,11 @@ export const authAPI = {
     });
   },
 
-  // Login
-  login: async (email, password) => {
+  // Login. captchaToken is only needed once the backend flags captchaRequired.
+  login: async (email, password, captchaToken) => {
     return apiRequest("/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, captchaToken }),
     });
   },
 
