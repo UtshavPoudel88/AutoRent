@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import { db } from "../db/index.js";
 import { users } from "../schema/index.js";
+import { verifyCaptcha } from "../services/captchaService.js";
 import { sendOTPEmail, sendPasswordResetOTPEmail } from "../services/emailService.js";
 import {
   disableMfa,
@@ -17,6 +18,12 @@ import {
   validateOTP,
   verifyOTP,
 } from "../services/otpService.js";
+
+/** After this many consecutive failed attempts, the account is temporarily locked. */
+const LOCKOUT_THRESHOLD = 5;
+const LOCKOUT_MINUTES = 15;
+/** Before the lockout threshold, start requiring CAPTCHA to slow down automated guessing. */
+const CAPTCHA_ATTEMPTS_THRESHOLD = 3;
 
 /** Short-lived token proving password was verified; only good for completing MFA login. */
 const issueMfaPendingToken = (user) => {
@@ -244,7 +251,7 @@ const resendOTP = async (req, res) => {
  */
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, captchaToken } = req.body;
 
     // Check if user exists
     const [user] = await db
@@ -260,6 +267,33 @@ const login = async (req, res) => {
       });
     }
 
+    // Account temporarily locked from repeated failed attempts
+    if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
+      // Clamp to at least 1: lockedUntil can tick into the past between the check
+      // above and this calculation, which would otherwise floor to 0 or go negative.
+      const minutesLeft = Math.max(
+        1,
+        Math.ceil((new Date(user.lockedUntil) - new Date()) / 60000)
+      );
+      return res.status(423).json({
+        success: false,
+        message: `Too many failed attempts. Try again in ${minutesLeft} minute${minutesLeft === 1 ? "" : "s"}.`,
+      });
+    }
+
+    // Past the CAPTCHA threshold: require a verified CAPTCHA before even checking the password
+    const captchaRequired = user.failedLoginAttempts >= CAPTCHA_ATTEMPTS_THRESHOLD;
+    if (captchaRequired) {
+      const captchaOk = await verifyCaptcha(captchaToken);
+      if (!captchaOk) {
+        return res.status(400).json({
+          success: false,
+          captchaRequired: true,
+          message: "Please complete the CAPTCHA to continue",
+        });
+      }
+    }
+
     // Check if email is verified
     if (!user.isEmailVerified) {
       return res.status(403).json({
@@ -272,10 +306,40 @@ const login = async (req, res) => {
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
+      const newFailedAttempts = user.failedLoginAttempts + 1;
+      const shouldLock = newFailedAttempts >= LOCKOUT_THRESHOLD;
+
+      await db
+        .update(users)
+        .set({
+          failedLoginAttempts: shouldLock ? 0 : newFailedAttempts,
+          lockedUntil: shouldLock
+            ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000)
+            : null,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, user.id));
+
+      if (shouldLock) {
+        return res.status(423).json({
+          success: false,
+          message: `Too many failed attempts. Your account is locked for ${LOCKOUT_MINUTES} minutes.`,
+        });
+      }
+
       return res.status(401).json({
         success: false,
+        captchaRequired: newFailedAttempts >= CAPTCHA_ATTEMPTS_THRESHOLD,
         message: "Invalid email or password",
       });
+    }
+
+    // Successful password check — clear any prior failed-attempt tracking
+    if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+      await db
+        .update(users)
+        .set({ failedLoginAttempts: 0, lockedUntil: null, updatedAt: new Date() })
+        .where(eq(users.id, user.id));
     }
 
     const jwtSecret = process.env.JWT_SECRET;
