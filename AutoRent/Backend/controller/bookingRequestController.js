@@ -234,10 +234,6 @@ const cancelRequestController = async (req, res) => {
 const getMyRequestsController = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const role = req.user.role;
-    if (role !== "renter") {
-      return res.status(403).json({ success: false, message: "Only renters can view their requests" });
-    }
     const list = await getMyRequests(userId);
     res.status(200).json({ success: true, data: list });
   } catch (error) {
@@ -249,10 +245,6 @@ const getMyRequestsController = async (req, res) => {
 const getRequestsForOwnerController = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const role = req.user.role;
-    if (role !== "owner" && role !== "admin") {
-      return res.status(403).json({ success: false, message: "Only owners can view their requests" });
-    }
     const list = await getRequestsForOwner(userId);
     res.status(200).json({ success: true, data: list });
   } catch (error) {

@@ -54,21 +54,7 @@ const getGaragesForMapController = async (req, res) => {
  */
 const createGarageController = async (req, res) => {
   try {
-    const { userId, role } = req.user || {};
-
-    if (!userId || !role) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required",
-      });
-    }
-
-    if (role !== "renter") {
-      return res.status(403).json({
-        success: false,
-        message: "Only renters can add garage locations",
-      });
-    }
+    const { userId } = req.user;
 
     const { name, latitude, longitude, city, district, province, address, phone, email, website, openingHours, type } =
       req.body || {};

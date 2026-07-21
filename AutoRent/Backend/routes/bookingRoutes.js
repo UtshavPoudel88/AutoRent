@@ -9,14 +9,15 @@ import {
   getOwnerStatsController,
 } from "../controller/bookingController.js";
 import { authenticateToken } from "../middleware/auth.js";
+import { requireRole } from "../middleware/requireRole.js";
 import { validateCreateBooking } from "../middleware/validators/bookingCreateValidation.js";
 
 const router = express.Router();
 
 router.use(authenticateToken);
 
-router.get("/bookings/stats", getOwnerStatsController);
-router.get("/bookings/stats/earnings", getOwnerEarningsReportController);
+router.get("/bookings/stats", requireRole("owner"), getOwnerStatsController);
+router.get("/bookings/stats/earnings", requireRole("owner"), getOwnerEarningsReportController);
 router.get("/bookings", getBookingsController);
 router.get("/bookings/:id", getBookingByIdController);
 router.post("/bookings", ensureVerifiedRenter, validateCreateBooking, createBookingController);

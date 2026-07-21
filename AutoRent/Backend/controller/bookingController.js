@@ -133,13 +133,7 @@ const getBookingByIdController = async (req, res) => {
  */
 const getOwnerStatsController = async (req, res) => {
   try {
-    const { role, userId } = req.user;
-    if (role !== "owner") {
-      return res.status(403).json({
-        success: false,
-        message: "Only vehicle owners can view dashboard stats",
-      });
-    }
+    const { userId } = req.user;
     const stats = await getOwnerStats(userId);
     res.status(200).json({
       success: true,
@@ -160,13 +154,7 @@ const getOwnerStatsController = async (req, res) => {
  */
 const getOwnerEarningsReportController = async (req, res) => {
   try {
-    const { role, userId } = req.user;
-    if (role !== "owner") {
-      return res.status(403).json({
-        success: false,
-        message: "Only vehicle owners can view earnings",
-      });
-    }
+    const { userId } = req.user;
     const data = await getOwnerEarningsReport(userId);
     res.status(200).json({
       success: true,

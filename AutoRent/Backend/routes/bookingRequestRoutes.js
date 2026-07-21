@@ -1,5 +1,6 @@
 import express from "express";
 import { authenticateToken } from "../middleware/auth.js";
+import { requireRole } from "../middleware/requireRole.js";
 import { validateBookingRequestCreate } from "../middleware/validators/bookingRequestValidation.js";
 import {
   approveRequestController,
@@ -21,8 +22,8 @@ router.post(
   validateBookingRequestCreate,
   createRequestController
 );
-router.get("/booking-requests/owner", getRequestsForOwnerController); // owner: pending requests (must be before :id)
-router.get("/booking-requests", getMyRequestsController); // renter: my requests
+router.get("/booking-requests/owner", requireRole("owner", "admin"), getRequestsForOwnerController); // owner: pending requests (must be before :id)
+router.get("/booking-requests", requireRole("renter"), getMyRequestsController); // renter: my requests
 router.get("/booking-requests/:id", getRequestByIdController);
 router.patch("/booking-requests/:id/approve", approveRequestController);
 router.patch("/booking-requests/:id/reject", rejectRequestController);
