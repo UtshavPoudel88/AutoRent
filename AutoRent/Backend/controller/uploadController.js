@@ -6,15 +6,6 @@ import { uploadDocument, uploadImage } from "../services/cloudinaryService.js";
  */
 const uploadImagesController = async (req, res) => {
   try {
-    const { role } = req.user;
-
-    if (role !== "owner") {
-      return res.status(403).json({
-        success: false,
-        message: "Only owners can upload vehicle images",
-      });
-    }
-
     const files = req.files;
     if (!files || files.length === 0) {
       return res.status(400).json({
@@ -61,15 +52,6 @@ const uploadImagesController = async (req, res) => {
  */
 const uploadDocumentsController = async (req, res) => {
   try {
-    const { role } = req.user;
-
-    if (role !== "owner") {
-      return res.status(403).json({
-        success: false,
-        message: "Only owners can upload vehicle documents",
-      });
-    }
-
     const files = req.files;
     if (!files || files.length === 0) {
       return res.status(400).json({

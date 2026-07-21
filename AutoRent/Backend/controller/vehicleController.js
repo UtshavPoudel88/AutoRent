@@ -78,14 +78,7 @@ const getPublicVehicleByIdController = async (req, res) => {
  */
 const addVehicleController = async (req, res) => {
   try {
-    const { role, userId } = req.user;
-
-    if (role !== "owner") {
-      return res.status(403).json({
-        success: false,
-        message: "Only owners can add vehicles",
-      });
-    }
+    const { userId } = req.user;
 
     const licenseNumber = req.body.licenseNumber != null ? String(req.body.licenseNumber).trim() : "";
     if (!licenseNumber) {
@@ -183,14 +176,7 @@ const addVehicleController = async (req, res) => {
  */
 const getMyVehiclesController = async (req, res) => {
   try {
-    const { role, userId } = req.user;
-
-    if (role !== "owner") {
-      return res.status(403).json({
-        success: false,
-        message: "Only owners can list their vehicles",
-      });
-    }
+    const { userId } = req.user;
 
     const vehicles = await getVehiclesByOwnerId(userId);
 
@@ -214,7 +200,7 @@ const getMyVehiclesController = async (req, res) => {
 const getVehicleByIdController = async (req, res) => {
   try {
     const { id } = req.params;
-    const { role, userId } = req.user;
+    const { userId } = req.user;
 
     const vehicle = await getVehicleById(id);
 
@@ -225,7 +211,8 @@ const getVehicleByIdController = async (req, res) => {
       });
     }
 
-    if (role !== "owner" || vehicle.ownerId !== userId) {
+    // Role is already enforced at the route; this is the ownership (IDOR) check.
+    if (vehicle.ownerId !== userId) {
       return res.status(403).json({
         success: false,
         message: "You can only view your own vehicles",
@@ -253,14 +240,7 @@ const addVehicleImagesController = async (req, res) => {
   try {
     const { id } = req.params;
     const { imageUrls } = req.body;
-    const { role, userId } = req.user;
-
-    if (role !== "owner") {
-      return res.status(403).json({
-        success: false,
-        message: "Only owners can add vehicle images",
-      });
-    }
+    const { userId } = req.user;
 
     const belongs = await vehicleBelongsToOwner(id, userId);
     if (!belongs) {
@@ -307,14 +287,7 @@ const addVehicleImagesController = async (req, res) => {
 const updateVehicleController = async (req, res) => {
   try {
     const { id } = req.params;
-    const { role, userId } = req.user;
-
-    if (role !== "owner") {
-      return res.status(403).json({
-        success: false,
-        message: "Only owners can update their vehicles",
-      });
-    }
+    const { userId } = req.user;
 
     const vehicle = await updateVehicle(id, userId, req.body);
 
@@ -352,14 +325,7 @@ const updateVehicleController = async (req, res) => {
 const deleteVehicleController = async (req, res) => {
   try {
     const { id } = req.params;
-    const { role, userId } = req.user;
-
-    if (role !== "owner") {
-      return res.status(403).json({
-        success: false,
-        message: "Only owners can delete their vehicles",
-      });
-    }
+    const { userId } = req.user;
 
     const deleted = await deleteVehicle(id, userId);
 

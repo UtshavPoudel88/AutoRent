@@ -5,6 +5,7 @@ import {
   uploadSingleImageController,
 } from "../controller/uploadController.js";
 import { authenticateToken } from "../middleware/auth.js";
+import { requireRole } from "../middleware/requireRole.js";
 import { uploadDocuments, uploadImages, uploadSingleImage } from "../middleware/upload.js";
 
 const router = express.Router();
@@ -13,6 +14,7 @@ const router = express.Router();
 router.post(
   "/upload/images",
   authenticateToken,
+  requireRole("owner"),
   (req, res, next) => {
     uploadImages(req, res, (err) => {
       if (err) {
@@ -35,6 +37,7 @@ router.post(
 router.post(
   "/upload/documents",
   authenticateToken,
+  requireRole("owner"),
   (req, res, next) => {
     uploadDocuments(req, res, (err) => {
       if (err) {

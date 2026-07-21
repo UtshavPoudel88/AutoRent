@@ -18,6 +18,7 @@ import {
   updateVehicleController,
 } from "../controller/vehicleController.js";
 import { authenticateToken } from "../middleware/auth.js";
+import { requireRole } from "../middleware/requireRole.js";
 import { validateAddVehicle, validateAddVehicleImages, validateUpdateVehicle } from "../middleware/validation.js";
 
 const router = express.Router();
@@ -26,20 +27,20 @@ const router = express.Router();
 router.get("/vehicles/browse", getPublicVehiclesController);
 router.get("/vehicles/browse/:id", getPublicVehicleByIdController);
 
-// —— Owner vehicle routes (auth required) ——
-router.post("/vehicles", authenticateToken, validateAddVehicle, addVehicleController);
-router.get("/vehicles", authenticateToken, getMyVehiclesController);
-router.get("/vehicles/:id", authenticateToken, getVehicleByIdController);
-router.patch("/vehicles/:id", authenticateToken, validateUpdateVehicle, updateVehicleController);
-router.delete("/vehicles/:id", authenticateToken, deleteVehicleController);
-router.post("/vehicles/:id/images", authenticateToken, validateAddVehicleImages, addVehicleImagesController);
+// —— Owner vehicle routes (auth + owner role required) ——
+router.post("/vehicles", authenticateToken, requireRole("owner"), validateAddVehicle, addVehicleController);
+router.get("/vehicles", authenticateToken, requireRole("owner"), getMyVehiclesController);
+router.get("/vehicles/:id", authenticateToken, requireRole("owner"), getVehicleByIdController);
+router.patch("/vehicles/:id", authenticateToken, requireRole("owner"), validateUpdateVehicle, updateVehicleController);
+router.delete("/vehicles/:id", authenticateToken, requireRole("owner"), deleteVehicleController);
+router.post("/vehicles/:id/images", authenticateToken, requireRole("owner"), validateAddVehicleImages, addVehicleImagesController);
 
-// —— Admin routes (auth required) ——
-router.get("/admin/stats", authenticateToken, getAdminStatsController);
-router.get("/admin/vehicles", authenticateToken, getAllVehiclesController);
-router.get("/admin/vehicles/:id", authenticateToken, getVehicleByIdAdminController);
-router.patch("/admin/vehicles/:id/verify", authenticateToken, updateVehicleVerifyController);
-router.get("/admin/reports", authenticateToken, getAdminReportStatsController);
-router.get("/admin/activity", authenticateToken, getAdminActivityFeedController);
+// —— Admin routes (auth + admin role required) ——
+router.get("/admin/stats", authenticateToken, requireRole("admin"), getAdminStatsController);
+router.get("/admin/vehicles", authenticateToken, requireRole("admin"), getAllVehiclesController);
+router.get("/admin/vehicles/:id", authenticateToken, requireRole("admin"), getVehicleByIdAdminController);
+router.patch("/admin/vehicles/:id/verify", authenticateToken, requireRole("admin"), updateVehicleVerifyController);
+router.get("/admin/reports", authenticateToken, requireRole("admin"), getAdminReportStatsController);
+router.get("/admin/activity", authenticateToken, requireRole("admin"), getAdminActivityFeedController);
 
 export default router;
