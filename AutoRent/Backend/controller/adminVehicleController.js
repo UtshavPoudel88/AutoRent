@@ -21,13 +21,6 @@ import {
  */
 const getAdminStatsController = async (req, res) => {
   try {
-    const { role } = req.user;
-    if (role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Only admins can view dashboard stats",
-      });
-    }
     const stats = await getAdminStats();
     res.status(200).json({
       success: true,
@@ -48,14 +41,6 @@ const getAdminStatsController = async (req, res) => {
  */
 const getAllVehiclesController = async (req, res) => {
   try {
-    const { role } = req.user;
-    if (role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Only admins can list all vehicles",
-      });
-    }
-
     const ownerId = req.query.ownerId || null;
     const vehicles = await getAllVehicles(ownerId);
     res.status(200).json({
@@ -78,13 +63,6 @@ const getAllVehiclesController = async (req, res) => {
 const getVehicleByIdAdminController = async (req, res) => {
   try {
     const { id } = req.params;
-    const { role } = req.user;
-    if (role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Only admins can view vehicle details",
-      });
-    }
 
     const vehicle = await getVehicleById(id);
     if (!vehicle) {
@@ -115,13 +93,6 @@ const updateVehicleVerifyController = async (req, res) => {
   try {
     const { id } = req.params;
     const { isVerified } = req.body;
-    const { role } = req.user;
-    if (role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Only admins can verify vehicles",
-      });
-    }
 
     if (typeof isVerified !== "boolean") {
       return res.status(400).json({
@@ -185,9 +156,6 @@ const updateVehicleVerifyController = async (req, res) => {
 
 const getAdminReportStatsController = async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ success: false, message: "Admin only" });
-    }
     const data = await getAdminReportStats();
     res.status(200).json({ success: true, data });
   } catch (error) {
@@ -202,9 +170,6 @@ const getAdminReportStatsController = async (req, res) => {
 
 const getAdminActivityFeedController = async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ success: false, message: "Admin only" });
-    }
     const data = await getAdminActivityFeed();
     res.status(200).json({ success: true, data });
   } catch (error) {

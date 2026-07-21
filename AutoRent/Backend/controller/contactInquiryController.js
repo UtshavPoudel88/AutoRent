@@ -52,13 +52,6 @@ const createContactInquiryController = async (req, res) => {
  */
 const listContactInquiriesController = async (req, res) => {
   try {
-    if (req.user?.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Only admins can view inquiries",
-      });
-    }
-
     const list = await listInquiries();
     res.status(200).json({
       success: true,
@@ -78,13 +71,6 @@ const listContactInquiriesController = async (req, res) => {
  */
 const deleteContactInquiryController = async (req, res) => {
   try {
-    if (req.user?.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Only admins can delete inquiries",
-      });
-    }
-
     const id = req.params?.id;
     if (!id || typeof id !== "string" || !id.trim()) {
       return res.status(400).json({ success: false, message: "Invalid id" });

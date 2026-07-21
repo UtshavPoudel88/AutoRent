@@ -5,13 +5,6 @@ import { getAllBookingsForAdmin } from "../services/bookingService.js";
  */
 const getAdminBookingsController = async (req, res) => {
   try {
-    if (req.user?.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Only admins can list all bookings",
-      });
-    }
-
     const list = await getAllBookingsForAdmin();
     res.status(200).json({
       success: true,

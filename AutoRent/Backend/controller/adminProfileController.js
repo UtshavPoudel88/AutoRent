@@ -12,13 +12,6 @@ import {
  */
 const getAllUsersController = async (req, res) => {
   try {
-    if (req.user?.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Only admins can list users",
-      });
-    }
-
     const role = req.query.role; // "renter" | "owner" or undefined for all
     if (role && role !== "renter" && role !== "owner") {
       return res.status(400).json({
@@ -49,13 +42,6 @@ const getAllUsersController = async (req, res) => {
  */
 const getPendingProfileVerificationController = async (req, res) => {
   try {
-    if (req.user?.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Only admins can view pending profile verifications",
-      });
-    }
-
     const list = await getUsersPendingProfileVerification();
 
     res.status(200).json({
@@ -79,13 +65,6 @@ const getPendingProfileVerificationController = async (req, res) => {
  */
 const verifyProfileController = async (req, res) => {
   try {
-    if (req.user?.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Only admins can verify profiles",
-      });
-    }
-
     const { userId } = req.params;
     const { isVerified } = req.body;
 
@@ -128,13 +107,6 @@ const verifyProfileController = async (req, res) => {
  */
 const deleteUserController = async (req, res) => {
   try {
-    if (req.user?.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Only admins can delete users",
-      });
-    }
-
     const { userId } = req.params;
     const currentUserId = req.user?.userId || req.user?.id;
 
