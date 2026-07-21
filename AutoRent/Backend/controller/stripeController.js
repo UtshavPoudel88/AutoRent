@@ -124,7 +124,24 @@ export const initiateStripeController = async (req, res) => {
  */
 export const verifyStripeController = async (req, res) => {
   try {
+    const userId = req.user.userId;
     const { sessionId, purchaseOrderId } = req.body;
+
+    const [booking] = await db
+      .select({ renterId: bookings.renterId })
+      .from(bookings)
+      .where(eq(bookings.id, purchaseOrderId))
+      .limit(1);
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Booking not found" });
+    }
+    if (booking.renterId !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the renter can verify payment for this booking",
+      });
+    }
 
     const session = await retrieveSession(sessionId);
 
