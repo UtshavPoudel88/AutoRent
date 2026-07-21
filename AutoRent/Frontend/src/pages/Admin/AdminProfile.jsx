@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import {
   PageHeader,
 } from "../../component/dashboard/DashboardPrimitives.jsx";
+import MfaSettings from "../../component/MfaSettings.jsx";
 import { adminAPI } from "../../utils/api.js";
 
 const AdminProfile = ({ user }) => {
@@ -145,6 +146,9 @@ const AdminProfile = ({ user }) => {
             </div>
           </div>
         </div>
+      </div>
+      <div className="mt-6">
+        <MfaSettings user={user} variant="light" />
       </div>
     </>
   );

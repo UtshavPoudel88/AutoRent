@@ -13,6 +13,7 @@ import {
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useState } from "react";
 import { PageHeader } from "../../component/dashboard/DashboardPrimitives.jsx";
+import MfaSettings from "../../component/MfaSettings.jsx";
 import OwnerProfileForm from "../../component/owner/OwnerProfileForm.jsx";
 
 const OwnerProfile = ({ user, userDetails, loadingDetails, onProfileUpdate }) => {
@@ -287,6 +288,9 @@ const OwnerProfile = ({ user, userDetails, loadingDetails, onProfileUpdate }) =>
             )}
           </>
         )}
+      </div>
+      <div className="mt-6">
+        <MfaSettings user={user} variant="light" />
       </div>
     </>
   );

@@ -12,6 +12,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useState } from "react";
+import MfaSettings from "../../component/MfaSettings.jsx";
 import RenterProfileForm from "../../component/renter/RenterProfileForm.jsx";
 
 const RenterProfile = ({ user, userDetails, loadingDetails, onProfileUpdate }) => {
@@ -28,6 +29,7 @@ const RenterProfile = ({ user, userDetails, loadingDetails, onProfileUpdate }) =
   };
 
   return (
+    <div className="space-y-6">
     <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-8">
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -274,6 +276,8 @@ const RenterProfile = ({ user, userDetails, loadingDetails, onProfileUpdate }) =
           )}
         </>
       )}
+    </div>
+    <MfaSettings user={user} variant="dark" />
     </div>
   );
 };
