@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { boolean, pgEnum, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
+import { boolean, integer, pgEnum, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
 
 // User role enum
 export const userRoleEnum = pgEnum("user_role", ["renter", "owner", "admin"]);
@@ -21,6 +21,9 @@ const users = pgTable("users", {
   mfaSecret: varchar("mfa_secret", { length: 255 }), // confirmed, active secret (base32)
   mfaTempSecret: varchar("mfa_temp_secret", { length: 255 }), // pending secret during enrollment, before confirmation
   mfaBackupCodes: varchar("mfa_backup_codes", { length: 2000 }), // JSON array of bcrypt-hashed one-time recovery codes
+  // Brute-force protection
+  failedLoginAttempts: integer("failed_login_attempts").default(0).notNull(),
+  lockedUntil: timestamp("locked_until"), // account locked until this time, if set
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
