@@ -14,7 +14,8 @@
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.3",
     "speakeasy": "^2.0.0",
-    "stripe": "^21.0.1"
+    "stripe": "^21.0.1",
+    "zxcvbn": "^4.4.2"
   },
   "name": "backend",
   "version": "1.0.0",

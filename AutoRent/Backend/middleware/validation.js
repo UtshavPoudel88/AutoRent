@@ -1,15 +1,12 @@
+import { validatePasswordPolicy } from "../services/passwordPolicyService.js";
 import { isValidEmail } from "./validationUtils.js";
 
 /**
- * Validate password strength
+ * Validate password strength (length, character classes, zxcvbn common/breach-pattern check).
  * @param {string} password - Password to validate
  * @returns {boolean} - True if valid
  */
-const isValidPassword = (password) => {
-  // At least 8 characters, 1 uppercase, 1 lowercase, 1 number
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/;
-  return passwordRegex.test(password);
-};
+const isValidPassword = (password) => validatePasswordPolicy(password).valid;
 
 /**
  * Middleware to validate registration data
@@ -28,10 +25,9 @@ const validateRegistration = (req, res, next) => {
   // Password validation
   if (!password) {
     errors.push("Password is required");
-  } else if (!isValidPassword(password)) {
-    errors.push(
-      "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number"
-    );
+  } else {
+    const policy = validatePasswordPolicy(password, [email, firstName, lastName]);
+    if (!policy.valid) errors.push(...policy.errors);
   }
 
   // Optional fields validation
@@ -129,10 +125,9 @@ const validateResetPassword = (req, res, next) => {
 
   if (!newPassword) {
     errors.push("New password is required");
-  } else if (!isValidPassword(newPassword)) {
-    errors.push(
-      "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number"
-    );
+  } else {
+    const policy = validatePasswordPolicy(newPassword, [email]);
+    if (!policy.valid) errors.push(...policy.errors);
   }
 
   if (errors.length > 0) {
