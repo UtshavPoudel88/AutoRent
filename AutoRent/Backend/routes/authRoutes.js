@@ -5,6 +5,7 @@ import {
   getMe,
   login,
   loginVerifyMfa,
+  logoutController,
   register,
   resendOTP,
   resetPassword,
@@ -65,6 +66,9 @@ router.post("/auth/reset-password", forgotPasswordLimiter, validateResetPassword
 
 // Get current user (auth required; returns fresh user including isProfileVerified)
 router.get("/auth/me", authenticateToken, getMe);
+
+// Logout — invalidates this session server-side (bumps tokenVersion; see middleware/auth.js)
+router.post("/auth/logout", authenticateToken, logoutController);
 
 // ==================== MFA (TOTP) Routes ====================
 
