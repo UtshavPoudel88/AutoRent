@@ -4,6 +4,15 @@ import { OTP_EXPIRY_MINUTES } from "./otpService.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** Escapes a value for safe interpolation into an HTML email body (names, vehicle titles, reasons are user-controlled). */
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 /**
  * Parse EMAIL_FROM: "you@domain.com" or "AutoRent <you@domain.com>".
  */
@@ -180,7 +189,7 @@ const sendNewVehicleSubmittedToAdmin = async (adminEmail, vehicleName, ownerName
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background-color: #f4f4f4; padding: 20px; border-radius: 5px;">
         <h2 style="color: #333;">New Vehicle Submitted for Review</h2>
-        <p><strong>${vehicleName}</strong> has been submitted by <strong>${ownerName}</strong> and is pending your approval.</p>
+        <p><strong>${escapeHtml(vehicleName)}</strong> has been submitted by <strong>${escapeHtml(ownerName)}</strong> and is pending your approval.</p>
         <p>Please log in to the Admin Dashboard to review and approve or reject this vehicle.</p>
         <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
         <p style="color: #666; font-size: 12px;">This is an automated email from AutoRent.</p>
@@ -204,7 +213,7 @@ const sendVehicleApprovedToOwner = async (ownerEmail, vehicleName) => {
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background-color: #f4f4f4; padding: 20px; border-radius: 5px;">
         <h2 style="color: #16a34a;">Your Vehicle Has Been Approved</h2>
-        <p>Good news! <strong>${vehicleName}</strong> has been approved by our admin and is now listed for rent.</p>
+        <p>Good news! <strong>${escapeHtml(vehicleName)}</strong> has been approved by our admin and is now listed for rent.</p>
         <p>Renters can now view and book your vehicle from the platform.</p>
         <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
         <p style="color: #666; font-size: 12px;">This is an automated email from AutoRent.</p>
@@ -221,7 +230,7 @@ const sendVehicleApprovedToOwner = async (ownerEmail, vehicleName) => {
  */
 const sendVehicleRejectedToOwner = async (ownerEmail, vehicleName, reason = "") => {
   const subject = "Vehicle Not Approved - AutoRent";
-  const reasonBlock = reason ? `<p><strong>Reason:</strong> ${reason}</p>` : "";
+  const reasonBlock = reason ? `<p><strong>Reason:</strong> ${escapeHtml(reason)}</p>` : "";
   const html = `
     <!DOCTYPE html>
     <html>
@@ -229,7 +238,7 @@ const sendVehicleRejectedToOwner = async (ownerEmail, vehicleName, reason = "") 
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background-color: #f4f4f4; padding: 20px; border-radius: 5px;">
         <h2 style="color: #dc2626;">Vehicle Not Approved</h2>
-        <p>Unfortunately, <strong>${vehicleName}</strong> was not approved for listing at this time.</p>
+        <p>Unfortunately, <strong>${escapeHtml(vehicleName)}</strong> was not approved for listing at this time.</p>
         ${reasonBlock}
         <p>You can log in to your Owner Dashboard to view details or submit a new vehicle.</p>
         <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
@@ -255,7 +264,7 @@ const sendContactInquiryThankYou = async (email, name) => {
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background-color: #f4f4f4; padding: 20px; border-radius: 5px;">
         <h2 style="color: #333; margin-top: 0;">Thank you for contacting us</h2>
-        <p>Hi ${displayName.replace(/</g, "&lt;").replace(/>/g, "&gt;")},</p>
+        <p>Hi ${escapeHtml(displayName)},</p>
         <p>We’ve received your message and appreciate you reaching out to AutoRent. Our team will review it and get back to you as soon as we can.</p>
         <p style="margin-bottom: 0;">Best regards,<br><strong>The AutoRent Team</strong></p>
         <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
