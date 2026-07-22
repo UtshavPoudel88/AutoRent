@@ -18,6 +18,7 @@ import {
   validateOTP,
   verifyOTP,
 } from "../services/otpService.js";
+import { isPasswordExpired } from "../services/passwordPolicyService.js";
 
 /** After this many consecutive failed attempts, the account is temporarily locked. */
 const LOCKOUT_THRESHOLD = 5;
@@ -373,6 +374,7 @@ const login = async (req, res) => {
       message: "Login successful",
       user: userResponse,
       token,
+      passwordExpired: isPasswordExpired(user.passwordChangedAt),
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -471,13 +473,36 @@ const verifyOTPForReset = async (req, res) => {
 const resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
+    const emailLower = email.toLowerCase();
 
-    const isValid = await verifyOTP(email.toLowerCase(), otp);
+    const isValid = await verifyOTP(emailLower, otp);
 
     if (!isValid) {
       return res.status(400).json({
         success: false,
         message: "Invalid or expired OTP. Please request a new one.",
+      });
+    }
+
+    const [user] = await db
+      .select({ id: users.id, password: users.password })
+      .from(users)
+      .where(eq(users.email, emailLower))
+      .limit(1);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Password reuse prevention: reject resetting to the same password already in place
+    const isSameAsCurrent = await bcrypt.compare(newPassword, user.password);
+    if (isSameAsCurrent) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be different from your current password.",
       });
     }
 
@@ -488,9 +513,10 @@ const resetPassword = async (req, res) => {
       .update(users)
       .set({
         password: hashedPassword,
+        passwordChangedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(users.email, email.toLowerCase()));
+      .where(eq(users.email, emailLower));
 
     res.status(200).json({
       success: true,
@@ -537,6 +563,7 @@ const getMe = async (req, res) => {
     res.status(200).json({
       success: true,
       user: userResponse,
+      passwordExpired: isPasswordExpired(user.passwordChangedAt),
     });
   } catch (error) {
     console.error("Get me error:", error);
@@ -610,6 +637,7 @@ const loginVerifyMfa = async (req, res) => {
       message: "Login successful",
       user: userResponse,
       token,
+      passwordExpired: isPasswordExpired(user.passwordChangedAt),
     });
   } catch (error) {
     console.error("MFA login verification error:", error);
