@@ -1,6 +1,7 @@
 import cors from "cors";
 import "dotenv/config";
 import express from "express";
+import helmet from "helmet";
 import http from "http";
 import { Server } from "socket.io";
 import { client } from "./db/index.js";
@@ -29,30 +30,43 @@ const PORT = process.env.PORT || 5000;
 // req.ip see the real client IP from X-Forwarded-For instead of the proxy's.
 app.set("trust proxy", 1);
 
-/** Comma-separated in Render: https://app1.vercel.app,https://app2.vercel.app */
+/**
+ * Allowed frontend origin(s) — sourced from FRONTEND_URL (comma-separated for
+ * multiple deploys, e.g. Render: FRONTEND_URL=https://app1.vercel.app,https://app2.vercel.app).
+ * The localhost entries only matter in dev; they're harmless in prod since a
+ * request has to actually originate from one of these origins to match.
+ * Never falls back to "*" — an unset FRONTEND_URL just means only localhost works.
+ */
 function getAllowedOrigins() {
   const fromEnv = (process.env.FRONTEND_URL || "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  const defaults = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://autorentfyp.vercel.app",
-    "https://auto-rent-one.vercel.app",
-  ];
-  return [...new Set([...fromEnv, ...defaults])];
+  const devDefaults = ["http://localhost:5173", "http://127.0.0.1:5173"];
+  return [...new Set([...fromEnv, ...devDefaults])];
 }
 
 const allowedOrigins = getAllowedOrigins();
 
 function corsOriginCallback(origin, callback) {
+  // No Origin header = same-origin request or a non-browser client (curl, mobile
+  // app, server-to-server) — CORS is a browser-only mechanism, so this can't be
+  // used to bypass auth; every route is still gated by the JWT bearer check.
   if (!origin) return callback(null, true);
   if (allowedOrigins.includes(origin)) return callback(null, true);
+  console.warn(`[CORS] Blocked request from disallowed origin: ${origin}`);
   callback(null, false);
 }
 
-// Middleware — single CORS config (multiple Vercel URLs + localhost)
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // this process serves JSON + Socket.IO, not the HTML the CSP needs to protect — see Frontend/vercel.json and index.html for the CSP that actually governs the app
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // API is intentionally called from a different origin (the Vercel-hosted frontend)
+  })
+);
+
+// CORS — locked to FRONTEND_URL, not "*". credentials:true so the browser will
+// forward the Authorization header on cross-origin fetches from the allowed origin.
 app.use(
   cors({
     origin: corsOriginCallback,
