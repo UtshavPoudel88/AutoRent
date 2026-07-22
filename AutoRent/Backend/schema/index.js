@@ -1,4 +1,5 @@
 // Central schema export file
+export { activityLogStatusEnum, activityLogs } from "./activityLog.js";
 export { bookingStatusEnum, bookings } from "./booking.js";
 export { bookingRequestStatusEnum, bookingRequests } from "./bookingRequest.js";
 export { contactInquiries, inquirySourceEnum } from "./contactInquiry.js";
