@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { desc, eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { contactInquiries } from "../schema/index.js";
+import { sanitizePlainText } from "./sanitizeService.js";
 
 const SOURCES = new Set(["contact", "faq", "footer"]);
 
@@ -16,11 +17,11 @@ const createInquiry = async ({ source, name, email, phone, subject, message }) =
       .values({
         id,
         source,
-        name: String(name).trim(),
+        name: sanitizePlainText(name),
         email: String(email).trim(),
         phone: phone ? String(phone).trim().slice(0, 50) : null,
-        subject: subject ? String(subject).trim().slice(0, 500) : null,
-        message: String(message).trim(),
+        subject: subject ? sanitizePlainText(subject).slice(0, 500) : null,
+        message: sanitizePlainText(message),
       })
       .returning();
     return row ?? null;

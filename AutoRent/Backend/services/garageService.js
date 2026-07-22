@@ -1,6 +1,7 @@
 import { and, eq, gte, lte, ilike, or } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { garages } from "../schema/index.js";
+import { sanitizePlainText } from "./sanitizeService.js";
 
 /**
  * Create a new garage entry, typically from a renter (crowd-locating).
@@ -24,18 +25,18 @@ const createGarage = async ({
   const [garage] = await db
     .insert(garages)
     .values({
-      name: String(name).trim(),
+      name: sanitizePlainText(name),
       latitude: String(latitude),
       longitude: String(longitude),
-      city: city ? String(city).trim() : null,
-      district: district ? String(district).trim() : null,
-      province: province ? String(province).trim() : null,
-      address: address ? String(address).trim() : null,
+      city: city ? sanitizePlainText(city) : null,
+      district: district ? sanitizePlainText(district) : null,
+      province: province ? sanitizePlainText(province) : null,
+      address: address ? sanitizePlainText(address) : null,
       phone: phone ? String(phone).trim() : null,
       email: email ? String(email).trim() : null,
       website: website ? String(website).trim() : null,
-      openingHours: openingHours ? String(openingHours).trim() : null,
-      type: type ? String(type).trim() : null,
+      openingHours: openingHours ? sanitizePlainText(openingHours) : null,
+      type: type ? sanitizePlainText(type) : null,
       source,
       createdByUserId,
       updatedAt: new Date(),

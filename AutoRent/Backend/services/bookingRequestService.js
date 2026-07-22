@@ -1,6 +1,7 @@
 import { and, desc, eq, gte, inArray, lte, or } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { bookingRequests, bookings, payments, users, vehicles } from "../schema/index.js";
+import { sanitizePlainText } from "./sanitizeService.js";
 
 /**
  * Check overlapping: confirmed/in_progress bookings for same dates.
@@ -84,9 +85,9 @@ const createRequest = async (renterId, data) => {
       ownerId: vehicle.ownerId,
       startDate,
       returnDate,
-      pickupPlace,
-      dropoffPlace: dropoffPlace || null,
-      notes: notes || null,
+      pickupPlace: sanitizePlainText(pickupPlace),
+      dropoffPlace: dropoffPlace ? sanitizePlainText(dropoffPlace) : null,
+      notes: notes ? sanitizePlainText(notes) : null,
       status: "pending",
       updatedAt: new Date(),
     })
@@ -217,7 +218,7 @@ const rejectRequest = async (requestId, userId, userRole, rejectionReason = null
     .update(bookingRequests)
     .set({
       status: "rejected",
-      rejectionReason: rejectionReason || null,
+      rejectionReason: rejectionReason ? sanitizePlainText(rejectionReason) : null,
       respondedAt: now,
       updatedAt: now,
     })

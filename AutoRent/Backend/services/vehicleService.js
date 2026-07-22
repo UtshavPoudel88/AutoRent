@@ -2,6 +2,7 @@ import { and, count, desc, eq, gte, inArray, isNotNull, ne, or, sql } from "driz
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../db/index.js";
 import { bookings, userDetails, users, vehicleImages, vehicles } from "../schema/index.js";
+import { sanitizePlainText } from "./sanitizeService.js";
 import { getRatingStats, getRatingStatsForVehicles } from "./vehicleReviewService.js";
 
 /**
@@ -23,8 +24,8 @@ const createVehicle = async (ownerId, vehicleData, imageUrls = [], documentUrls 
     .insert(vehicles)
     .values({
       ownerId,
-      brand: vehicleData.brand,
-      model: vehicleData.model,
+      brand: sanitizePlainText(vehicleData.brand),
+      model: sanitizePlainText(vehicleData.model),
       licenseNumber: vehicleData.licenseNumber != null && String(vehicleData.licenseNumber).trim() !== ""
         ? String(vehicleData.licenseNumber).trim().slice(0, 50)
         : null,
@@ -39,10 +40,10 @@ const createVehicle = async (ownerId, vehicleData, imageUrls = [], documentUrls 
       securityDeposit: vehicleData.securityDeposit != null ? String(vehicleData.securityDeposit) : null,
       lateFeePerHour: vehicleData.lateFeePerHour != null ? String(vehicleData.lateFeePerHour) : null,
       status: vehicleData.status ?? "available",
-      description: vehicleData.description ?? null,
+      description: vehicleData.description != null ? sanitizePlainText(vehicleData.description) : null,
       pickupLatitude: vehicleData.pickupLatitude != null ? String(vehicleData.pickupLatitude) : null,
       pickupLongitude: vehicleData.pickupLongitude != null ? String(vehicleData.pickupLongitude) : null,
-      pickupAddress: vehicleData.pickupAddress != null ? String(vehicleData.pickupAddress).trim().slice(0, 500) : null,
+      pickupAddress: vehicleData.pickupAddress != null ? sanitizePlainText(vehicleData.pickupAddress).slice(0, 500) : null,
       updatedAt: new Date(),
     })
     .returning();
@@ -438,8 +439,8 @@ const updateVehicle = async (vehicleId, ownerId, data) => {
   if (!belongs) return null;
 
   const allowed = {};
-  if (data.brand !== undefined) allowed.brand = String(data.brand).trim();
-  if (data.model !== undefined) allowed.model = String(data.model).trim();
+  if (data.brand !== undefined) allowed.brand = sanitizePlainText(data.brand);
+  if (data.model !== undefined) allowed.model = sanitizePlainText(data.model);
   if (data.licenseNumber !== undefined) {
     allowed.licenseNumber =
       data.licenseNumber === null || data.licenseNumber === ""
@@ -456,11 +457,11 @@ const updateVehicle = async (vehicleId, ownerId, data) => {
   if (data.pricePerDay !== undefined) allowed.pricePerDay = String(data.pricePerDay);
   if (data.securityDeposit !== undefined) allowed.securityDeposit = data.securityDeposit === null || data.securityDeposit === "" ? null : String(data.securityDeposit);
   if (data.lateFeePerHour !== undefined) allowed.lateFeePerHour = data.lateFeePerHour === null || data.lateFeePerHour === "" ? null : String(data.lateFeePerHour);
-  if (data.description !== undefined) allowed.description = data.description === null || data.description === "" ? null : String(data.description).trim();
+  if (data.description !== undefined) allowed.description = data.description === null || data.description === "" ? null : sanitizePlainText(data.description);
   if (data.status !== undefined) allowed.status = data.status;
   if (data.pickupLatitude !== undefined) allowed.pickupLatitude = data.pickupLatitude === null || data.pickupLatitude === "" ? null : String(data.pickupLatitude);
   if (data.pickupLongitude !== undefined) allowed.pickupLongitude = data.pickupLongitude === null || data.pickupLongitude === "" ? null : String(data.pickupLongitude);
-  if (data.pickupAddress !== undefined) allowed.pickupAddress = data.pickupAddress === null || data.pickupAddress === "" ? null : String(data.pickupAddress).trim().slice(0, 500);
+  if (data.pickupAddress !== undefined) allowed.pickupAddress = data.pickupAddress === null || data.pickupAddress === "" ? null : sanitizePlainText(data.pickupAddress).slice(0, 500);
 
   if (Object.keys(allowed).length === 0) {
     return getVehicleById(vehicleId);

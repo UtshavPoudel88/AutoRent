@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { userDetails, users } from "../schema/index.js";
 import { decryptField, encryptField } from "./encryptionService.js";
+import { sanitizePlainText } from "./sanitizeService.js";
 
 /** Fields encrypted at rest — see services/encryptionService.js for why these and not others. */
 const ENCRYPTED_FIELDS = ["phoneNumber", "dateOfBirth", "address", "licenseNumber"];
@@ -45,8 +46,8 @@ const createUserDetails = async (userId, detailsData) => {
       phoneNumber: encryptField(detailsData.phoneNumber || null),
       dateOfBirth: encryptField(detailsData.dateOfBirth || null),
       profilePicture: detailsData.profilePicture || null,
-      address: encryptField(detailsData.address || null),
-      city: detailsData.city || null,
+      address: encryptField(detailsData.address ? sanitizePlainText(detailsData.address) : null),
+      city: detailsData.city ? sanitizePlainText(detailsData.city) : null,
       licenseNumber: encryptField(detailsData.licenseNumber || null),
       licenseExpiry: detailsData.licenseExpiry || null,
       licenseImage: detailsData.licenseImage || null,
@@ -80,10 +81,12 @@ const updateUserDetails = async (userId, detailsData) => {
     updateData.profilePicture = detailsData.profilePicture || null;
   }
   if (detailsData.address !== undefined) {
-    updateData.address = encryptField(detailsData.address || null);
+    updateData.address = encryptField(
+      detailsData.address ? sanitizePlainText(detailsData.address) : null
+    );
   }
   if (detailsData.city !== undefined) {
-    updateData.city = detailsData.city || null;
+    updateData.city = detailsData.city ? sanitizePlainText(detailsData.city) : null;
   }
   if (detailsData.licenseNumber !== undefined) {
     updateData.licenseNumber = encryptField(detailsData.licenseNumber || null);

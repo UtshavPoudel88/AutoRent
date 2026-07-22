@@ -2,6 +2,7 @@ import { and, count, desc, eq, gte, inArray, lte, ne, or, sql } from "drizzle-or
 import { db } from "../db/index.js";
 import { bookings, payments, users, vehicles } from "../schema/index.js";
 import { decryptField } from "./encryptionService.js";
+import { sanitizePlainText } from "./sanitizeService.js";
 import {
   createNotification,
   NOTIFICATION_TYPES,
@@ -107,9 +108,9 @@ const createBookingWithPayment = async (renterId, data, paymentMethod = "pay_on_
       ownerId,
       startDate,
       returnDate,
-      pickupPlace,
-      dropoffPlace: dropoffPlace || null,
-      notes: notes || null,
+      pickupPlace: sanitizePlainText(pickupPlace),
+      dropoffPlace: dropoffPlace ? sanitizePlainText(dropoffPlace) : null,
+      notes: notes ? sanitizePlainText(notes) : null,
       status: "confirmed", // For pay_on_pickup we confirm immediately
       updatedAt: new Date(),
     })

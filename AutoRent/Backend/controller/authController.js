@@ -21,6 +21,7 @@ import {
 } from "../services/otpService.js";
 import { isPasswordExpired } from "../services/passwordPolicyService.js";
 import { ACTIONS, logActivity } from "../services/activityLogService.js";
+import { sanitizePlainText } from "../services/sanitizeService.js";
 
 /** After this many consecutive failed attempts, the account is temporarily locked. */
 const LOCKOUT_THRESHOLD = 5;
@@ -103,8 +104,8 @@ const register = async (req, res) => {
       .values({
         email: email.toLowerCase(),
         password: hashedPassword,
-        firstName: firstName || null,
-        lastName: lastName || null,
+        firstName: firstName ? sanitizePlainText(firstName) || null : null,
+        lastName: lastName ? sanitizePlainText(lastName) || null : null,
         role: userRole,
         isEmailVerified: false,
         otp: otp,

@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { bookings, users, vehicleReviews } from "../schema/index.js";
+import { sanitizePlainText } from "./sanitizeService.js";
 
 /**
  * Create or update a vehicle review. User must have completed a booking for this vehicle.
@@ -51,7 +52,7 @@ const createReview = async (userId, vehicleId, rating, comment = null) => {
 
   const values = {
     rating: r,
-    comment: comment?.trim() || null,
+    comment: comment ? sanitizePlainText(comment) || null : null,
     bookingId: booking.id,
     updatedAt: new Date(),
   };
