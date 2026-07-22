@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { bookings, payments, users, vehicles } from "../schema/index.js";
+import { ACTIONS, logActivity } from "../services/activityLogService.js";
 import { encryptField } from "../services/encryptionService.js";
 import { initiatePayment, lookupPayment } from "../services/khaltiService.js";
 
@@ -194,6 +195,14 @@ export const verifyKhaltiController = async (req, res) => {
         updatedAt: new Date(),
       })
       .where(eq(payments.id, payment.id));
+
+    await logActivity({
+      userId,
+      action: ACTIONS.PAYMENT_VERIFIED,
+      targetId: purchaseOrderId,
+      req,
+      metadata: { method: "khalti", amount: result.total_amount / 100 },
+    });
 
     res.status(200).json({
       success: true,

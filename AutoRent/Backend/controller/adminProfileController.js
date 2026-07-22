@@ -1,3 +1,4 @@
+import { ACTIONS, logActivity } from "../services/activityLogService.js";
 import {
   deleteUser,
   getAllUsers,
@@ -86,6 +87,14 @@ const verifyProfileController = async (req, res) => {
 
     const { password: _, otp: __, otpExpiresAt: ___, mfaSecret: ____, mfaTempSecret: _____, mfaBackupCodes: ______, ...userResponse } = updatedUser;
 
+    await logActivity({
+      userId: req.user?.userId || req.user?.id,
+      action: ACTIONS.ADMIN_VERIFY_PROFILE,
+      targetId: userId,
+      req,
+      metadata: { isVerified },
+    });
+
     res.status(200).json({
       success: true,
       message: `Profile ${isVerified ? "verified" : "unverified"} successfully`,
@@ -125,6 +134,14 @@ const deleteUserController = async (req, res) => {
         message: "User not found",
       });
     }
+
+    await logActivity({
+      userId: currentUserId,
+      action: ACTIONS.ADMIN_DELETE_USER,
+      targetId: userId,
+      req,
+      metadata: { deletedUserRole: deleted.role },
+    });
 
     res.status(200).json({
       success: true,

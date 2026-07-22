@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { bookings, payments, users, vehicles } from "../schema/index.js";
+import { ACTIONS, logActivity } from "../services/activityLogService.js";
 import { encryptField } from "../services/encryptionService.js";
 import { createCheckoutSession, retrieveSession } from "../services/stripeService.js";
 
@@ -192,6 +193,14 @@ export const verifyStripeController = async (req, res) => {
       .where(eq(payments.id, payment.id));
 
     const paidUSD = (session.amountTotal || 0) / 100;
+
+    await logActivity({
+      userId,
+      action: ACTIONS.PAYMENT_VERIFIED,
+      targetId: purchaseOrderId,
+      req,
+      metadata: { method: "stripe", amount: paidUSD, currency: "USD" },
+    });
 
     res.status(200).json({
       success: true,

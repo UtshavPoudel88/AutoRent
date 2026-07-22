@@ -2,6 +2,7 @@ import {
     sendVehicleApprovedToOwner,
     sendVehicleRejectedToOwner,
 } from "../services/emailService.js";
+import { ACTIONS, logActivity } from "../services/activityLogService.js";
 import {
     createNotification,
     getUserById,
@@ -138,6 +139,14 @@ const updateVehicleVerifyController = async (req, res) => {
         console.error("Notification/email to owner failed:", err);
       }
     }
+
+    await logActivity({
+      userId: req.user.userId,
+      action: ACTIONS.ADMIN_VERIFY_VEHICLE,
+      targetId: id,
+      req,
+      metadata: { isVerified },
+    });
 
     res.status(200).json({
       success: true,

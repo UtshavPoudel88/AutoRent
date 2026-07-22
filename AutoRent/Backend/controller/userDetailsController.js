@@ -1,3 +1,4 @@
+import { ACTIONS, logActivity } from "../services/activityLogService.js";
 import {
   createUserDetails,
   getUserDetails,
@@ -86,6 +87,15 @@ const createUserDetailsController = async (req, res) => {
 
     const newDetails = await createUserDetails(userId, detailsData);
 
+    // Log which fields were set, never the values themselves (several are PII).
+    await logActivity({
+      userId: requestingUserId,
+      action: ACTIONS.PROFILE_UPDATED,
+      targetId: userId,
+      req,
+      metadata: { op: "create", fields: Object.keys(detailsData).filter((k) => detailsData[k] != null) },
+    });
+
     res.status(201).json({
       success: true,
       message: "User details created successfully",
@@ -147,6 +157,17 @@ const updateUserDetailsController = async (req, res) => {
       });
     }
 
+    await logActivity({
+      userId: requestingUserId,
+      action: ACTIONS.PROFILE_UPDATED,
+      targetId: userId,
+      req,
+      metadata: {
+        op: "update",
+        fields: Object.keys(req.body).filter((k) => req.body[k] !== undefined),
+      },
+    });
+
     res.status(200).json({
       success: true,
       message: "User details updated successfully",
@@ -194,6 +215,14 @@ const verifyLicenseController = async (req, res) => {
         message: "User details not found",
       });
     }
+
+    await logActivity({
+      userId: req.user?.userId,
+      action: ACTIONS.ADMIN_VERIFY_LICENSE,
+      targetId: userId,
+      req,
+      metadata: { isVerified },
+    });
 
     res.status(200).json({
       success: true,
