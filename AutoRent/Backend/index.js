@@ -2,9 +2,9 @@ import cors from "cors";
 import "dotenv/config";
 import express from "express";
 import http from "http";
-import jwt from "jsonwebtoken";
 import { Server } from "socket.io";
 import { client } from "./db/index.js";
+import { verifySessionToken } from "./middleware/auth.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import bookingRequestRoutes from "./routes/bookingRequestRoutes.js";
@@ -95,8 +95,9 @@ const io = new Server(server, {
 
 setNotificationSocket(io);
 
-// Socket authentication using JWT (same secret as HTTP)
-io.use((socket, next) => {
+// Socket authentication — same verification as HTTP requests (signature, expiry,
+// tokenVersion revocation check, UA binding). See middleware/auth.js.
+io.use(async (socket, next) => {
   try {
     const token =
       socket.handshake.auth?.token ||
@@ -106,17 +107,13 @@ io.use((socket, next) => {
       return next(new Error("Authentication error"));
     }
 
-    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-      if (err || !decoded) {
-        return next(new Error("Authentication error"));
-      }
-      socket.user = {
-        userId: decoded.userId || decoded.id,
-        email: decoded.email,
-        role: decoded.role,
-      };
-      next();
-    });
+    const decoded = await verifySessionToken(token, socket.handshake.headers["user-agent"]);
+    socket.user = {
+      userId: decoded.userId || decoded.id,
+      email: decoded.email,
+      role: decoded.role,
+    };
+    next();
   } catch (err) {
     next(new Error("Authentication error"));
   }

@@ -1,7 +1,8 @@
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import { db } from "../db/index.js";
+import { hashUserAgent } from "../middleware/auth.js";
 import { users } from "../schema/index.js";
 import { verifyCaptcha } from "../services/captchaService.js";
 import { sendOTPEmail, sendPasswordResetOTPEmail } from "../services/emailService.js";
@@ -36,7 +37,12 @@ const issueMfaPendingToken = (user) => {
   );
 };
 
-const issueSessionToken = (user) => {
+/**
+ * Issues the real session JWT. Embeds tokenVersion (so logout/password-reset can
+ * revoke it server-side before its natural expiry) and a UA hash (soft device
+ * binding — see middleware/auth.js for how both are checked on every request).
+ */
+const issueSessionToken = (user, userAgent) => {
   const jwtSecret = process.env.JWT_SECRET;
   return jwt.sign(
     {
@@ -44,6 +50,8 @@ const issueSessionToken = (user) => {
       userId: user.id, // Alias for consistency
       email: user.email,
       role: user.role,
+      tokenVersion: user.tokenVersion ?? 0,
+      uaHash: hashUserAgent(userAgent),
     },
     jwtSecret,
     {
@@ -364,7 +372,7 @@ const login = async (req, res) => {
       });
     }
 
-    const token = issueSessionToken(user);
+    const token = issueSessionToken(user, req.headers["user-agent"]);
 
     // Remove password, otp, and otpExpiresAt from response
     const { password: _, otp: __, otpExpiresAt: ___, mfaSecret: ____, mfaTempSecret: _____, mfaBackupCodes: ______, ...userResponse } = user;
@@ -514,6 +522,9 @@ const resetPassword = async (req, res) => {
       .set({
         password: hashedPassword,
         passwordChangedAt: new Date(),
+        // A password reset should kill any session issued under the old password —
+        // bumping tokenVersion invalidates every previously issued JWT at once.
+        tokenVersion: sql`${users.tokenVersion} + 1`,
         updatedAt: new Date(),
       })
       .where(eq(users.email, emailLower));
@@ -629,7 +640,7 @@ const loginVerifyMfa = async (req, res) => {
       });
     }
 
-    const token = issueSessionToken(user);
+    const token = issueSessionToken(user, req.headers["user-agent"]);
     const { password: _, otp: __, otpExpiresAt: ___, mfaSecret: ____, mfaTempSecret: _____, mfaBackupCodes: ______, ...userResponse } = user;
 
     res.status(200).json({
@@ -759,12 +770,38 @@ const disableMfaController = async (req, res) => {
   }
 };
 
+/**
+ * POST /auth/logout – server-side session invalidation. Bumps tokenVersion so
+ * the token just used (and any other copies of it) fails verification on its
+ * very next use, instead of staying valid until its exp claim naturally expires.
+ */
+const logoutController = async (req, res) => {
+  try {
+    const userId = req.user?.userId || req.user?.id;
+
+    await db
+      .update(users)
+      .set({ tokenVersion: sql`${users.tokenVersion} + 1`, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+
+    res.status(200).json({ success: true, message: "Logged out successfully" });
+  } catch (error) {
+    console.error("Logout error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
 export {
   disableMfaController,
   forgotPassword,
   getMe,
   login,
   loginVerifyMfa,
+  logoutController,
   register,
   resendOTP,
   resetPassword,
