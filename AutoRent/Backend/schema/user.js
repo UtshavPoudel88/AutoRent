@@ -26,6 +26,9 @@ const users = pgTable("users", {
   lockedUntil: timestamp("locked_until"), // account locked until this time, if set
   // Password policy: when the current password was set (registration or last change); used for expiry checks
   passwordChangedAt: timestamp("password_changed_at").defaultNow().notNull(),
+  // Session invalidation: bumped on logout / password reset. JWTs carry the version
+  // they were issued with; a mismatch means the session was revoked server-side.
+  tokenVersion: integer("token_version").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
