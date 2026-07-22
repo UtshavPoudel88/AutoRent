@@ -11,6 +11,7 @@ import Footer from "./component/Footer.jsx";
 import ForgotPasswordModal from "./component/ForgotPasswordModal.jsx";
 import LoginModal from "./component/LoginModal.jsx";
 import Navbar from "./component/navbar.jsx";
+import PasswordExpiredBanner from "./component/PasswordExpiredBanner.jsx";
 import SignUpModal from "./component/SignUpModal.jsx";
 import Contact from "./pages/Contact.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -68,6 +69,10 @@ const AppContent = () => {
 
   return (
     <>
+      {isAuthenticated && (
+        <PasswordExpiredBanner onOpenForgotPassword={() => setOpenModal("forgotPassword")} />
+      )}
+
       {!isDashboard && (
         <Navbar
           isAuthenticated={isAuthenticated}

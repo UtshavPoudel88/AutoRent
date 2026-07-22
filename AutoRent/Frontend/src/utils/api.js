@@ -124,10 +124,11 @@ export const authAPI = {
     });
   },
 
-  // Get current user (auth required; includes isProfileVerified)
+  // Get current user (auth required; includes isProfileVerified, passwordExpired)
   me: async () => {
     const res = await apiRequest("/auth/me", { method: "GET" });
-    return res?.user ?? null;
+    if (!res?.user) return null;
+    return { ...res.user, passwordExpired: !!res.passwordExpired };
   },
 
   // Complete login after password step with a TOTP/backup code
