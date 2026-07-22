@@ -4,6 +4,38 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      CSP for local dev (`vite dev`/`vite preview`) and any static host that doesn't
+      set the header itself. Production (Vercel) should get the same policy via
+      vercel.json's headers config, which also covers frame-ancestors (meta CSP
+      can't set that — browsers ignore it there per spec).
+
+      Directives loosened from a strict default, and why:
+      - style-src 'unsafe-inline': React's style={{}} props compile to inline
+        style="..." attributes, and Tailwind/MapLibre/FontAwesome all rely on
+        inline styles at runtime. A nonce-based style-src needs server-side
+        HTML rendering to inject a per-request nonce; this is a static SPA.
+      - img-src data:: the MFA QR code is rendered from a server-generated
+        data:image/png;base64 URI (component/PasswordStrengthMeter's sibling,
+        MfaSettings.jsx), not a fetched file.
+      - img-src blob:: local image previews before upload (URL.createObjectURL).
+      - connect-src/img-src include both https://basemaps.cartocdn.com (bare
+        apex — the style.json request) and https://*.basemaps.cartocdn.com
+        (the a/b/c/d lettered subdomains tiles are actually fetched from) —
+        a CSP wildcard doesn't match its own bare apex domain, so both forms
+        are needed. MapLibre GL fetches these via XHR/fetch (connect-src),
+        not <img> tags, though img-src is included too for safety.
+      - script-src/frame-src include https://www.google.com (+ gstatic for the
+        script): the reCAPTCHA v2 checkbox widget loads its script and renders
+        its challenge in an iframe from Google's domain.
+      - PRODUCTION TODO: once the backend is deployed, add its origin (and the
+        wss:// equivalent for Socket.IO) to connect-src below — currently
+        scoped to localhost since there's no production URL yet.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://res.cloudinary.com https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' http://localhost:5002 http://127.0.0.1:5002 ws://localhost:5002 ws://127.0.0.1:5002 https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://www.google.com; worker-src 'self' blob:; frame-src https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self'"
+    />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
