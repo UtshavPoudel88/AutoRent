@@ -25,7 +25,7 @@ import Services from "./pages/Services.jsx";
 import TermsOfService from "./pages/TermsOfService.jsx";
 import VehicleBook from "./pages/VehicleBook.jsx";
 import VehicleDetail from "./pages/VehicleDetail.jsx";
-import { getAuthToken, removeAuthToken } from "./utils/api.js";
+import { getAuthToken, logout } from "./utils/api.js";
 import { disconnectSocket } from "./utils/socket.js";
 
 const AppContent = () => {
@@ -59,10 +59,9 @@ const AppContent = () => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     disconnectSocket();
-    removeAuthToken();
-    localStorage.removeItem("user");
+    await logout();
     setIsAuthenticated(false);
     window.location.href = "/";
   };

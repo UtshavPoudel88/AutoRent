@@ -24,7 +24,7 @@ import {
     bookingsAPI,
     getAuthToken,
     khaltiAPI,
-    removeAuthToken,
+    logout,
     reviewsAPI,
     stripeAPI,
     userDetailsAPI,
@@ -82,10 +82,9 @@ const RenterDashboard = ({ user }) => {
       ? `${user.firstName} ${user.lastName}`
       : user.firstName || user.lastName || "User";
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     disconnectSocket();
-    removeAuthToken();
-    localStorage.removeItem("user");
+    await logout();
     navigate("/");
   };
 

@@ -131,6 +131,12 @@ export const authAPI = {
     return { ...res.user, passwordExpired: !!res.passwordExpired };
   },
 
+  // Invalidate this session server-side (bumps tokenVersion — see Backend/middleware/auth.js).
+  // Best-effort: caller should clear local token/user regardless of whether this succeeds.
+  logout: async () => {
+    return apiRequest("/auth/logout", { method: "POST" });
+  },
+
   // Complete login after password step with a TOTP/backup code
   loginVerifyMfa: async (mfaToken, code) => {
     return apiRequest("/auth/login/mfa", {
@@ -619,5 +625,21 @@ export const getAuthToken = () => {
 
 export const removeAuthToken = () => {
   localStorage.removeItem("token");
+};
+
+/**
+ * Full logout: invalidates the session server-side (see authAPI.logout), then
+ * always clears local token/user — even if the network call fails — so the
+ * user isn't stuck "logged in" locally with a dead connection.
+ */
+export const logout = async () => {
+  try {
+    await authAPI.logout();
+  } catch {
+    // Best-effort — still clear local state below.
+  } finally {
+    removeAuthToken();
+    localStorage.removeItem("user");
+  }
 };
 

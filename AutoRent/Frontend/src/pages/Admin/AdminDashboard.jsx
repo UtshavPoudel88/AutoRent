@@ -5,7 +5,7 @@ import AdminSidebar, {
   ADMIN_SIDEBAR_COLLAPSED_PX,
   ADMIN_SIDEBAR_EXPANDED_PX,
 } from "../../component/admin/AdminSidebar.jsx";
-import { notificationsAPI, removeAuthToken } from "../../utils/api.js";
+import { logout, notificationsAPI } from "../../utils/api.js";
 import { disconnectSocket, getSocket } from "../../utils/socket.js";
 import AdminInquiries from "./AdminInquiries.jsx";
 import AdminNotifications from "./AdminNotifications.jsx";
@@ -36,10 +36,9 @@ const AdminDashboard = ({ user }) => {
   };
   const pageTitle = adminPageTitles[activeSection] ?? "Dashboard";
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     disconnectSocket();
-    removeAuthToken();
-    localStorage.removeItem("user");
+    await logout();
     navigate("/");
   };
 

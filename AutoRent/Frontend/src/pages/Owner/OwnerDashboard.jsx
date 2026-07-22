@@ -8,8 +8,8 @@ import OwnerSidebar, {
 } from "../../component/owner/OwnerSidebar.jsx";
 import {
   getAuthToken,
+  logout,
   notificationsAPI,
-  removeAuthToken,
   userDetailsAPI,
   vehicleAPI,
 } from "../../utils/api.js";
@@ -41,10 +41,9 @@ const OwnerDashboard = ({ user }) => {
   };
   const pageTitle = ownerPageTitles[activeSection] ?? "Dashboard";
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     disconnectSocket();
-    removeAuthToken();
-    localStorage.removeItem("user");
+    await logout();
     navigate("/");
   };
 
