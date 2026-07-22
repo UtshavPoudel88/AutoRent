@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import speakeasy from "speakeasy";
 import { db } from "../db/index.js";
 import { users } from "../schema/index.js";
+import { decryptField, encryptField } from "./encryptionService.js";
 
 const BACKUP_CODE_COUNT = 10;
 const BACKUP_CODE_BYTES = 5; // -> 10 hex chars per code
@@ -22,7 +23,7 @@ const generateEnrollmentSecret = async (userId, email) => {
 
   await db
     .update(users)
-    .set({ mfaTempSecret: secret.base32, updatedAt: new Date() })
+    .set({ mfaTempSecret: encryptField(secret.base32), updatedAt: new Date() })
     .where(eq(users.id, userId));
 
   const qrCodeDataUrl = await QRCode.toDataURL(secret.otpauth_url);
@@ -62,7 +63,8 @@ const verifyAndEnableMfa = async (userId, code) => {
     return { success: false, message: "No pending MFA enrollment found" };
   }
 
-  if (!verifyTotpCode(user.mfaTempSecret, code)) {
+  const tempSecret = decryptField(user.mfaTempSecret);
+  if (!verifyTotpCode(tempSecret, code)) {
     return { success: false, message: "Invalid or expired code" };
   }
 
@@ -72,7 +74,7 @@ const verifyAndEnableMfa = async (userId, code) => {
     .update(users)
     .set({
       mfaEnabled: true,
-      mfaSecret: user.mfaTempSecret,
+      mfaSecret: encryptField(tempSecret), // re-encrypted with a fresh IV, not just copied ciphertext
       mfaTempSecret: null,
       mfaBackupCodes: JSON.stringify(hashedCodes),
       updatedAt: new Date(),
@@ -109,7 +111,7 @@ const verifyLoginCode = async (userId, code) => {
   const trimmed = typeof code === "string" ? code.trim() : "";
 
   if (/^\d{6}$/.test(trimmed)) {
-    return verifyTotpCode(user.mfaSecret, trimmed);
+    return verifyTotpCode(decryptField(user.mfaSecret), trimmed);
   }
 
   // Otherwise, try it as a backup code

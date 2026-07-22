@@ -1,6 +1,7 @@
 import { and, count, desc, eq, gte, inArray, lte, ne, or, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { bookings, payments, users, vehicles } from "../schema/index.js";
+import { decryptField } from "./encryptionService.js";
 import {
   createNotification,
   NOTIFICATION_TYPES,
@@ -192,7 +193,11 @@ const getBookingById = async (bookingId, userId, userRole) => {
     .where(eq(payments.bookingId, bookingId))
     .limit(1);
 
-  return { ...row, vehicle: vehicle || null, payment: payment || null };
+  const decryptedPayment = payment
+    ? { ...payment, externalId: decryptField(payment.externalId) }
+    : null;
+
+  return { ...row, vehicle: vehicle || null, payment: decryptedPayment };
 };
 
 /**

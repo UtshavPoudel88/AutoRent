@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { bookings, payments, users, vehicles } from "../schema/index.js";
+import { encryptField } from "../services/encryptionService.js";
 import { initiatePayment, lookupPayment } from "../services/khaltiService.js";
 
 /**
@@ -188,7 +189,7 @@ export const verifyKhaltiController = async (req, res) => {
       .set({
         status: "paid",
         method: "khalti",
-        externalId: result.transaction_id || null,
+        externalId: encryptField(result.transaction_id || null),
         paidAt: new Date(),
         updatedAt: new Date(),
       })

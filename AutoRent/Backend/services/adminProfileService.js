@@ -1,6 +1,7 @@
 import { and, desc, eq, ne, or } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { userDetails, users } from "../schema/index.js";
+import { decryptUserDetailsRow } from "./userDetailsService.js";
 
 /**
  * Get all users with optional role filter (admin only). Excludes admin users.
@@ -40,7 +41,7 @@ const getAllUsers = async (role) => {
     .where(whereClause)
     .orderBy(desc(users.createdAt));
 
-  return rows;
+  return rows.map(decryptUserDetailsRow);
 };
 
 /**
@@ -88,9 +89,9 @@ const getUsersPendingProfileVerification = async () => {
     .where(eq(users.role, "renter"));
 
   // Filter: not profile-verified, and has submitted profile with license (license image required for verification)
-  return allRenters.filter(
-    (u) => !u.isProfileVerified && u.licenseImage != null && u.userId != null
-  );
+  return allRenters
+    .filter((u) => !u.isProfileVerified && u.licenseImage != null && u.userId != null)
+    .map(decryptUserDetailsRow);
 };
 
 /**

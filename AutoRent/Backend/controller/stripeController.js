@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { bookings, payments, users, vehicles } from "../schema/index.js";
+import { encryptField } from "../services/encryptionService.js";
 import { createCheckoutSession, retrieveSession } from "../services/stripeService.js";
 
 const NPR_TO_USD_RATE = 1 / 133.5;
@@ -184,7 +185,7 @@ export const verifyStripeController = async (req, res) => {
       .set({
         status: "paid",
         method: "stripe",
-        externalId: session.paymentIntent || null,
+        externalId: encryptField(session.paymentIntent || null),
         paidAt: new Date(),
         updatedAt: new Date(),
       })

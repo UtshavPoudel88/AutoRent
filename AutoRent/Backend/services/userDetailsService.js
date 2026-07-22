@@ -1,6 +1,20 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { userDetails, users } from "../schema/index.js";
+import { decryptField, encryptField } from "./encryptionService.js";
+
+/** Fields encrypted at rest — see services/encryptionService.js for why these and not others. */
+const ENCRYPTED_FIELDS = ["phoneNumber", "dateOfBirth", "address", "licenseNumber"];
+
+/** Decrypts the encrypted fields on a userDetails row for API/consumer use. Pass-through for null. */
+const decryptUserDetailsRow = (row) => {
+  if (!row) return row;
+  const decrypted = { ...row };
+  for (const field of ENCRYPTED_FIELDS) {
+    if (decrypted[field] != null) decrypted[field] = decryptField(decrypted[field]);
+  }
+  return decrypted;
+};
 
 /**
  * Get user details by user ID
@@ -14,7 +28,7 @@ const getUserDetails = async (userId) => {
     .where(eq(userDetails.userId, userId))
     .limit(1);
 
-  return details || null;
+  return decryptUserDetailsRow(details) || null;
 };
 
 /**
@@ -28,12 +42,12 @@ const createUserDetails = async (userId, detailsData) => {
     .insert(userDetails)
     .values({
       userId: userId,
-      phoneNumber: detailsData.phoneNumber || null,
-      dateOfBirth: detailsData.dateOfBirth || null,
+      phoneNumber: encryptField(detailsData.phoneNumber || null),
+      dateOfBirth: encryptField(detailsData.dateOfBirth || null),
       profilePicture: detailsData.profilePicture || null,
-      address: detailsData.address || null,
+      address: encryptField(detailsData.address || null),
       city: detailsData.city || null,
-      licenseNumber: detailsData.licenseNumber || null,
+      licenseNumber: encryptField(detailsData.licenseNumber || null),
       licenseExpiry: detailsData.licenseExpiry || null,
       licenseImage: detailsData.licenseImage || null,
       isLicenseVerified: false, // Default to false, admin must verify
@@ -41,7 +55,7 @@ const createUserDetails = async (userId, detailsData) => {
     })
     .returning();
 
-  return newDetails;
+  return decryptUserDetailsRow(newDetails);
 };
 
 /**
@@ -57,22 +71,22 @@ const updateUserDetails = async (userId, detailsData) => {
   };
 
   if (detailsData.phoneNumber !== undefined) {
-    updateData.phoneNumber = detailsData.phoneNumber || null;
+    updateData.phoneNumber = encryptField(detailsData.phoneNumber || null);
   }
   if (detailsData.dateOfBirth !== undefined) {
-    updateData.dateOfBirth = detailsData.dateOfBirth || null;
+    updateData.dateOfBirth = encryptField(detailsData.dateOfBirth || null);
   }
   if (detailsData.profilePicture !== undefined) {
     updateData.profilePicture = detailsData.profilePicture || null;
   }
   if (detailsData.address !== undefined) {
-    updateData.address = detailsData.address || null;
+    updateData.address = encryptField(detailsData.address || null);
   }
   if (detailsData.city !== undefined) {
     updateData.city = detailsData.city || null;
   }
   if (detailsData.licenseNumber !== undefined) {
-    updateData.licenseNumber = detailsData.licenseNumber || null;
+    updateData.licenseNumber = encryptField(detailsData.licenseNumber || null);
   }
   if (detailsData.licenseExpiry !== undefined) {
     updateData.licenseExpiry = detailsData.licenseExpiry || null;
@@ -99,7 +113,7 @@ const updateUserDetails = async (userId, detailsData) => {
       .where(eq(users.id, userId));
   }
 
-  return updatedDetails || null;
+  return decryptUserDetailsRow(updatedDetails) || null;
 };
 
 /**
@@ -118,7 +132,7 @@ const verifyLicense = async (userId, isVerified) => {
     .where(eq(userDetails.userId, userId))
     .returning();
 
-  return updatedDetails || null;
+  return decryptUserDetailsRow(updatedDetails) || null;
 };
 
 /**
@@ -133,9 +147,9 @@ const userDetailsExist = async (userId) => {
 
 export {
   createUserDetails,
+  decryptUserDetailsRow,
   getUserDetails,
   updateUserDetails,
   userDetailsExist,
   verifyLicense
 };
-
