@@ -15,6 +15,7 @@ import {
   validateOtp,
   validatePasswordStrength,
 } from "../utils/formValidation.js";
+import PasswordStrengthMeter from "./PasswordStrengthMeter.jsx";
 
 const ForgotPasswordModal = ({ isOpen, onClose, onSwitchToLogin }) => {
   const [email, setEmail] = useState("");
@@ -330,7 +331,7 @@ const ForgotPasswordModal = ({ isOpen, onClose, onSwitchToLogin }) => {
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       required
-                      placeholder="8+ chars, 1 upper, 1 lower, 1 number"
+                      placeholder="8+ chars, upper, lower, number, symbol"
                       className="w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-12 pr-12 text-white placeholder:text-white/40 focus:border-orange-500/50 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition"
                     />
                     <button
@@ -347,6 +348,7 @@ const ForgotPasswordModal = ({ isOpen, onClose, onSwitchToLogin }) => {
                       />
                     </button>
                   </div>
+                  <PasswordStrengthMeter password={newPassword} userInputs={[email]} />
                 </div>
 
                 <div>

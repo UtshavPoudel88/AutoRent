@@ -12,6 +12,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useState } from "react";
 import { authAPI } from "../utils/api.js";
 import { validateOtp, validateSignUpRegister } from "../utils/formValidation.js";
+import PasswordStrengthMeter from "./PasswordStrengthMeter.jsx";
 
 const SignUpModal = ({ isOpen, onClose, onSwitchToLogin }) => {
   const [step, setStep] = useState("register"); // 'register' or 'verify'
@@ -334,7 +335,7 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin }) => {
                   value={formData.password}
                   onChange={handleChange}
                   required
-                  placeholder="At least 8 characters"
+                  placeholder="8+ chars, upper, lower, number, symbol"
                   className="w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-12 pr-12 text-white placeholder:text-white/40 focus:border-orange-500/50 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition"
                 />
                 <button
@@ -349,6 +350,10 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin }) => {
                   />
                 </button>
               </div>
+              <PasswordStrengthMeter
+                password={formData.password}
+                userInputs={[formData.email, formData.firstName, formData.lastName]}
+              />
             </div>
 
             {/* Confirm Password field */}

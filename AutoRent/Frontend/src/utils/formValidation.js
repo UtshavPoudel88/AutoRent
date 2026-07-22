@@ -4,9 +4,16 @@
  */
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-/** Same character class as backend middleware `isValidPassword` */
+/**
+ * Mirrors the backend's character-class rules (services/passwordPolicyService.js):
+ * min 8 chars, at least one uppercase, lowercase, digit, and symbol. The backend
+ * additionally runs a zxcvbn strength/common-password check that can't be
+ * replicated client-side without shipping the same dictionaries — final say
+ * always happens server-side; this is just fast client-side feedback.
+ */
+const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_STRENGTH_RE =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/;
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export const isValidEmail = (value) =>
@@ -30,11 +37,11 @@ export const validatePasswordStrength = (password) => {
   if (password == null || password === "") {
     return "Password is required.";
   }
-  if (password.length < 8) {
-    return "Password must be at least 8 characters long.";
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    return `Password must be at least ${PASSWORD_MIN_LENGTH} characters long.`;
   }
   if (!PASSWORD_STRENGTH_RE.test(password)) {
-    return "Password must include at least one uppercase letter, one lowercase letter, and one number.";
+    return "Password must include at least one uppercase letter, one lowercase letter, one number, and one symbol.";
   }
   return null;
 };
