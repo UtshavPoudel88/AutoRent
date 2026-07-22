@@ -120,6 +120,13 @@
       "when": 1784635641465,
       "tag": "0016_add_account_lockout",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1784705170521,
+      "tag": "0017_add_password_changed_at",
+      "breakpoints": true
     }
   ]
 }

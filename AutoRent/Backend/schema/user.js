@@ -24,6 +24,8 @@ const users = pgTable("users", {
   // Brute-force protection
   failedLoginAttempts: integer("failed_login_attempts").default(0).notNull(),
   lockedUntil: timestamp("locked_until"), // account locked until this time, if set
+  // Password policy: when the current password was set (registration or last change); used for expiry checks
+  passwordChangedAt: timestamp("password_changed_at").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
