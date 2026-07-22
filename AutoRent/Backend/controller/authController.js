@@ -20,6 +20,7 @@ import {
   verifyOTP,
 } from "../services/otpService.js";
 import { isPasswordExpired } from "../services/passwordPolicyService.js";
+import { ACTIONS, logActivity } from "../services/activityLogService.js";
 
 /** After this many consecutive failed attempts, the account is temporarily locked. */
 const LOCKOUT_THRESHOLD = 5;
@@ -76,6 +77,12 @@ const register = async (req, res) => {
 
     if (existingUser.length > 0) {
       console.log(`[Register] Duplicate email: ${email}`);
+      await logActivity({
+        action: ACTIONS.REGISTER,
+        status: "failure",
+        req,
+        metadata: { email: email.toLowerCase(), reason: "duplicate_email" },
+      });
       return res.status(409).json({
         success: false,
         message: "User with this email already exists",
@@ -114,6 +121,13 @@ const register = async (req, res) => {
     );
 
     const { password: _, otp: __, otpExpiresAt: ___, mfaSecret: ____, mfaTempSecret: _____, mfaBackupCodes: ______, ...userResponse } = newUser;
+
+    await logActivity({
+      userId: newUser.id,
+      action: ACTIONS.REGISTER,
+      req,
+      metadata: { email: emailLower, role: userRole },
+    });
 
     res.status(201).json({
       success: true,
@@ -270,6 +284,12 @@ const login = async (req, res) => {
       .limit(1);
 
     if (!user) {
+      await logActivity({
+        action: ACTIONS.LOGIN_FAILED,
+        status: "failure",
+        req,
+        metadata: { email: email.toLowerCase(), reason: "user_not_found" },
+      });
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
@@ -284,6 +304,13 @@ const login = async (req, res) => {
         1,
         Math.ceil((new Date(user.lockedUntil) - new Date()) / 60000)
       );
+      await logActivity({
+        userId: user.id,
+        action: ACTIONS.LOGIN_FAILED,
+        status: "failure",
+        req,
+        metadata: { reason: "account_locked" },
+      });
       return res.status(423).json({
         success: false,
         message: `Too many failed attempts. Try again in ${minutesLeft} minute${minutesLeft === 1 ? "" : "s"}.`,
@@ -295,6 +322,13 @@ const login = async (req, res) => {
     if (captchaRequired) {
       const captchaOk = await verifyCaptcha(captchaToken);
       if (!captchaOk) {
+        await logActivity({
+          userId: user.id,
+          action: ACTIONS.LOGIN_FAILED,
+          status: "failure",
+          req,
+          metadata: { reason: "captcha_required" },
+        });
         return res.status(400).json({
           success: false,
           captchaRequired: true,
@@ -305,6 +339,13 @@ const login = async (req, res) => {
 
     // Check if email is verified
     if (!user.isEmailVerified) {
+      await logActivity({
+        userId: user.id,
+        action: ACTIONS.LOGIN_FAILED,
+        status: "failure",
+        req,
+        metadata: { reason: "email_not_verified" },
+      });
       return res.status(403).json({
         success: false,
         message: "Please verify your email before logging in",
@@ -330,12 +371,26 @@ const login = async (req, res) => {
         .where(eq(users.id, user.id));
 
       if (shouldLock) {
+        await logActivity({
+          userId: user.id,
+          action: ACTIONS.ACCOUNT_LOCKED,
+          status: "failure",
+          req,
+          metadata: { lockoutMinutes: LOCKOUT_MINUTES },
+        });
         return res.status(423).json({
           success: false,
           message: `Too many failed attempts. Your account is locked for ${LOCKOUT_MINUTES} minutes.`,
         });
       }
 
+      await logActivity({
+        userId: user.id,
+        action: ACTIONS.LOGIN_FAILED,
+        status: "failure",
+        req,
+        metadata: { reason: "invalid_password", attempt: newFailedAttempts },
+      });
       return res.status(401).json({
         success: false,
         captchaRequired: newFailedAttempts >= CAPTCHA_ATTEMPTS_THRESHOLD,
@@ -364,6 +419,7 @@ const login = async (req, res) => {
     // token and require a valid TOTP/backup code first.
     if (user.mfaEnabled) {
       const mfaToken = issueMfaPendingToken(user);
+      await logActivity({ userId: user.id, action: ACTIONS.LOGIN_MFA_REQUIRED, req });
       return res.status(200).json({
         success: true,
         mfaRequired: true,
@@ -376,6 +432,8 @@ const login = async (req, res) => {
 
     // Remove password, otp, and otpExpiresAt from response
     const { password: _, otp: __, otpExpiresAt: ___, mfaSecret: ____, mfaTempSecret: _____, mfaBackupCodes: ______, ...userResponse } = user;
+
+    await logActivity({ userId: user.id, action: ACTIONS.LOGIN_SUCCESS, req });
 
     res.status(200).json({
       success: true,
@@ -417,6 +475,12 @@ const forgotPassword = async (req, res) => {
       .limit(1);
 
     if (!user) {
+      await logActivity({
+        action: ACTIONS.PASSWORD_RESET_REQUESTED,
+        status: "failure",
+        req,
+        metadata: { email: email.toLowerCase(), reason: "user_not_found" },
+      });
       return res.status(404).json({
         success: false,
         message: "No account found with this email address",
@@ -431,6 +495,9 @@ const forgotPassword = async (req, res) => {
       (emailError) =>
         console.error(`[ForgotPassword] Email FAILED for ${email}:`, emailError.message)
     );
+
+    await logActivity({ userId: user.id, action: ACTIONS.PASSWORD_RESET_REQUESTED, req });
+
     res.status(200).json({
       success: true,
       message: "OTP has been sent to your email. Use it to reset your password.",
@@ -486,6 +553,12 @@ const resetPassword = async (req, res) => {
     const isValid = await verifyOTP(emailLower, otp);
 
     if (!isValid) {
+      await logActivity({
+        action: ACTIONS.PASSWORD_RESET_FAILED,
+        status: "failure",
+        req,
+        metadata: { email: emailLower, reason: "invalid_otp" },
+      });
       return res.status(400).json({
         success: false,
         message: "Invalid or expired OTP. Please request a new one.",
@@ -508,6 +581,13 @@ const resetPassword = async (req, res) => {
     // Password reuse prevention: reject resetting to the same password already in place
     const isSameAsCurrent = await bcrypt.compare(newPassword, user.password);
     if (isSameAsCurrent) {
+      await logActivity({
+        userId: user.id,
+        action: ACTIONS.PASSWORD_RESET_FAILED,
+        status: "failure",
+        req,
+        metadata: { reason: "password_reuse" },
+      });
       return res.status(400).json({
         success: false,
         message: "New password must be different from your current password.",
@@ -528,6 +608,8 @@ const resetPassword = async (req, res) => {
         updatedAt: new Date(),
       })
       .where(eq(users.email, emailLower));
+
+    await logActivity({ userId: user.id, action: ACTIONS.PASSWORD_RESET_COMPLETED, req });
 
     res.status(200).json({
       success: true,
@@ -634,6 +716,12 @@ const loginVerifyMfa = async (req, res) => {
 
     const isValid = await verifyLoginCode(user.id, code);
     if (!isValid) {
+      await logActivity({
+        userId: user.id,
+        action: ACTIONS.MFA_LOGIN_VERIFY_FAILED,
+        status: "failure",
+        req,
+      });
       return res.status(401).json({
         success: false,
         message: "Invalid or expired code",
@@ -642,6 +730,8 @@ const loginVerifyMfa = async (req, res) => {
 
     const token = issueSessionToken(user, req.headers["user-agent"]);
     const { password: _, otp: __, otpExpiresAt: ___, mfaSecret: ____, mfaTempSecret: _____, mfaBackupCodes: ______, ...userResponse } = user;
+
+    await logActivity({ userId: user.id, action: ACTIONS.LOGIN_SUCCESS, req, metadata: { via: "mfa" } });
 
     res.status(200).json({
       success: true,
@@ -681,6 +771,8 @@ const setupMfa = async (req, res) => {
 
     const { secret, qrCodeDataUrl } = await generateEnrollmentSecret(userId, user.email);
 
+    await logActivity({ userId, action: ACTIONS.MFA_SETUP_STARTED, req });
+
     res.status(200).json({
       success: true,
       message: "Scan the QR code with your authenticator app, then confirm with a code",
@@ -712,8 +804,11 @@ const verifyMfaSetup = async (req, res) => {
 
     const result = await verifyAndEnableMfa(userId, code);
     if (!result.success) {
+      await logActivity({ userId, action: ACTIONS.MFA_SETUP_FAILED, status: "failure", req });
       return res.status(400).json({ success: false, message: result.message });
     }
+
+    await logActivity({ userId, action: ACTIONS.MFA_ENABLED, req });
 
     res.status(200).json({
       success: true,
@@ -754,10 +849,13 @@ const disableMfaController = async (req, res) => {
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
+      await logActivity({ userId, action: ACTIONS.MFA_DISABLE_FAILED, status: "failure", req });
       return res.status(401).json({ success: false, message: "Incorrect password" });
     }
 
     await disableMfa(userId);
+
+    await logActivity({ userId, action: ACTIONS.MFA_DISABLED, req });
 
     res.status(200).json({ success: true, message: "MFA has been disabled" });
   } catch (error) {
@@ -783,6 +881,8 @@ const logoutController = async (req, res) => {
       .update(users)
       .set({ tokenVersion: sql`${users.tokenVersion} + 1`, updatedAt: new Date() })
       .where(eq(users.id, userId));
+
+    await logActivity({ userId, action: ACTIONS.LOGOUT, req });
 
     res.status(200).json({ success: true, message: "Logged out successfully" });
   } catch (error) {
